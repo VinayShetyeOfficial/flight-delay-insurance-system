@@ -11,7 +11,6 @@ import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { loadStripe } from "@stripe/stripe-js";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -24,14 +23,10 @@ import {
   Baby,
   Search,
   Filter,
-  Clock,
   Loader2,
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { flightService } from "../../lib/flightService";
 
-// AI-Suggested imports
-import { format } from "date-fns";
+import FlightCard from "@/components/flight-card";
 
 // -----------------------------------------------------------------------------
 // Updated Zod Schema to match AI suggestion
@@ -193,12 +188,14 @@ export default function BookingPage() {
 
     try {
       // Format the date to YYYY-MM-DD
-      const formattedDate = data.departureDate.toISOString().split("T")[0];
+      const formattedDepartureDate = data.departureDate
+        .toISOString()
+        .split("T")[0];
 
       const searchParams = {
         origin: data.origin.toUpperCase(),
         destination: data.destination.toUpperCase(),
-        departureDate: formattedDate,
+        departureDate: formattedDepartureDate,
         adults: data.adults,
         children: data.children,
         infants: data.infants,
@@ -634,125 +631,51 @@ export default function BookingPage() {
               </Button>
             </div>
 
-            <Card className="border shadow-sm">
-              <div className="p-4 space-y-4">
-                {filteredAndSortedFlights.map((flight) => (
-                  <Card
-                    key={flight.id}
-                    className="p-6 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col space-y-6">
-                      {/* Header: Airline, Flight Number, Price */}
-                      <div className="flex justify-between items-start flex-wrap gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Plane className="h-5 w-5 text-primary" />
-                            <h3 className="text-xl font-semibold">
-                              {flight.airline}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm text-muted-foreground">
-                              Flight {flight.flightNumber}
-                            </p>
-                            {flight.status && (
-                              <span className="px-2 py-0.5 rounded-full text-xs uppercase bg-green-100 text-green-800 font-medium">
-                                {flight.status}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-3xl font-bold">${flight.price}</p>
-                          <Button
-                            onClick={() => handleBooking(flight)}
-                            className="mt-2"
-                            variant="default"
-                          >
-                            Select Flight
-                          </Button>
-                        </div>
-                      </div>
+            <div className="space-y-4">
+              {filteredAndSortedFlights.map((flight) => (
+                <FlightCard
+                  key={flight.id}
+                  airline={flight.airline}
+                  flightNumber={flight.flightNumber}
+                  origin={flight.origin}
+                  destination={flight.destination}
+                  departureTime={flight.departureTime}
+                  arrivalTime={flight.arrivalTime}
+                  duration={flight.duration}
+                  price={flight.price}
+                  status={flight.status}
+                  terminal={flight.terminal}
+                  aircraft={flight.aircraft}
+                  onSelect={() => handleBooking(flight)}
+                />
+              ))}
+            </div>
 
-                      {/* Flight Times and Route */}
-                      <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-12">
-                        {/* Departure */}
-                        <div className="flex flex-col">
-                          <p className="text-2xl font-bold">
-                            {flight.departureTime}
-                          </p>
-                          <p className="text-base font-medium">
-                            {flight.origin.split("(")[0].trim()}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Terminal {flight.terminal?.departure || "A"}
-                          </p>
-                        </div>
-
-                        {/* Flight Path */}
-                        <div className="flex-1 flex flex-col items-center min-w-[150px]">
-                          <div className="w-full flex items-center gap-2">
-                            <span className="text-[#9f9f9f]">•</span>
-                            <div className="h-[1px] flex-1 border-t-2 border-dashed border-[#9f9f9f]" />
-                            <Plane className="h-4 w-4 text-[#9f9f9f] rotate-45" />
-                            <div className="h-[1px] flex-1 border-t-2 border-dashed border-[#9f9f9f]" />
-                            <span className="text-[#9f9f9f]">•</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {Math.floor(flight.duration / 60)}h{" "}
-                            {flight.duration % 60}m • Direct
-                          </p>
-                        </div>
-
-                        {/* Arrival */}
-                        <div className="flex flex-col items-end">
-                          <p className="text-2xl font-bold">
-                            {flight.arrivalTime}
-                          </p>
-                          <p className="text-base font-medium">
-                            {flight.destination.split("(")[0].trim()}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Terminal {flight.terminal?.arrival || "A"}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Aircraft Info */}
-                      <p className="text-sm text-muted-foreground">
-                        Aircraft: {flight.aircraft || "Boeing 737"}
-                      </p>
-
-                      {/* Insurance Options */}
-                      <div className="space-y-4 pt-4 border-t">
-                        <h4 className="font-medium">Insurance Options</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {insuranceOptions.map((option) => (
-                            <div
-                              key={option.id}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                selectedInsurance === option.id
-                                  ? "border-primary bg-primary/5"
-                                  : "hover:border-primary/50"
-                              }`}
-                              onClick={() => setSelectedInsurance(option.id)}
-                            >
-                              <div className="space-y-2">
-                                <h5 className="font-medium">{option.name}</h5>
-                                <p className="text-sm text-muted-foreground">
-                                  {option.description}
-                                </p>
-                                <p className="text-lg font-bold">
-                                  ${option.price}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+            {/* Insurance Options */}
+            <Card className="mt-8">
+              <div className="p-6 space-y-4">
+                <h4 className="font-medium">Insurance Options</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {insuranceOptions.map((option) => (
+                    <div
+                      key={option.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                        selectedInsurance === option.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-primary/50"
+                      }`}
+                      onClick={() => setSelectedInsurance(option.id)}
+                    >
+                      <div className="space-y-2">
+                        <h5 className="font-medium">{option.name}</h5>
+                        <p className="text-sm text-muted-foreground">
+                          {option.description}
+                        </p>
+                        <p className="text-lg font-bold">${option.price}</p>
                       </div>
                     </div>
-                  </Card>
-                ))}
+                  ))}
+                </div>
               </div>
             </Card>
           </div>
