@@ -110,7 +110,7 @@ const generateMockFlights = (params: FlightSearchParams) => {
   const airlines = [
     "American Airlines",
     "United Airlines",
-    "Delta Air Lines",
+    "Delta Airlines",
     "JetBlue Airways",
     "Southwest Airlines",
   ];
