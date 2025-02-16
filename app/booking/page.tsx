@@ -669,8 +669,9 @@ export default function BookingPage() {
                         </div>
 
                         <div className="flex items-center gap-8">
-                          <div>
-                            <p className="font-medium">
+                          {/* Left side: Departure */}
+                          <div className="flex flex-col items-start">
+                            <p className="text-2xl font-semibold">
                               {flight.departureTime}
                             </p>
                             <p className="text-sm text-muted-foreground">
@@ -682,19 +683,27 @@ export default function BookingPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex-1 border-t border-dashed relative">
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              {flight.duration && (
-                                <span className="text-xs text-muted-foreground mt-1">
-                                  {Math.floor(flight.duration / 60)}h{" "}
-                                  {flight.duration % 60}m
-                                </span>
-                              )}
+
+                          {/* Middle: Flight duration line with plane */}
+                          <div className="flex-1 flex flex-col items-center self-baseline mt-[3px]">
+                            <div className="w-full flex items-center gap-2 text-muted-foreground">
+                              •
+                              <div className="h-[1px] w-[100px] flex-1 border-t-[2.5px] border-dashed border-gray-300" />
+                              <Plane className="h-4 w-4 text-muted-foreground rotate-45" />
+                              <div className="h-[1px] w-[100px] flex-1 border-t-[2.5px] border-dashed border-gray-300" />
+                              •
                             </div>
+                            <span className="text-xs text-muted-foreground mt-1">
+                              {Math.floor(flight.duration / 60)}h{" "}
+                              {flight.duration % 60}m • Direct
+                            </span>
                           </div>
-                          <div>
-                            <p className="font-medium">{flight.arrivalTime}</p>
+
+                          {/* Right side: Arrival */}
+                          <div className="flex flex-col items-end">
+                            <p className="text-2xl font-semibold">
+                              {flight.arrivalTime}
+                            </p>
                             <p className="text-sm text-muted-foreground">
                               {flight.destination}
                             </p>
