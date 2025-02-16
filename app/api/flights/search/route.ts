@@ -6,106 +6,7 @@ interface FlightSearchParams {
   departureDate: string;
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { origin, destination, departureDate } = body;
-
-    if (process.env.USE_REAL_FLIGHT_API === "false") {
-      const mockFlights = generateMockFlights({
-        origin,
-        destination,
-        departureDate,
-      });
-      return NextResponse.json(mockFlights);
-    }
-
-    // Format date to YYYY-MM-DD
-    const formattedDate = new Date(departureDate).toISOString().split("T")[0];
-
-    // Construct API URL with parameters
-    const apiUrl = new URL("https://api.aviationstack.com/v1/flights");
-    const params = {
-      access_key: process.env.FLIGHT_API_KEY || "",
-      dep_iata: origin,
-      arr_iata: destination,
-      flight_date: formattedDate,
-      limit: "10",
-    };
-
-    // Add parameters to URL
-    Object.entries(params).forEach(([key, value]) => {
-      apiUrl.searchParams.append(key, value);
-    });
-
-    console.log("Fetching flights from:", apiUrl.toString());
-
-    const response = await fetch(apiUrl.toString());
-    const data = await response.json();
-
-    // Log the raw API response to help understand the structure
-    console.log("Aviation Stack API Response:", JSON.stringify(data, null, 2));
-
-    if (data.error) {
-      throw new Error(data.error.message || "Failed to fetch flights");
-    }
-
-    // Transform the API response to match our frontend expectations
-    const transformedFlights = data.data.map((flight: any) => ({
-      id: flight.flight.number,
-      airline: flight.airline.name,
-      flightNumber: flight.flight.iata,
-      origin: `${flight.departure.airport} (${flight.departure.iata})`,
-      destination: `${flight.arrival.airport} (${flight.arrival.iata})`,
-      departureTime: new Date(flight.departure.scheduled).toLocaleTimeString(
-        "en-US",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }
-      ),
-      arrivalTime: new Date(flight.arrival.scheduled).toLocaleTimeString(
-        "en-US",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }
-      ),
-      price: Math.floor(Math.random() * (800 - 200) + 200), // Still using random price as API doesn't provide it
-      duration:
-        flight.flight.duration ||
-        Math.floor(
-          (new Date(flight.arrival.scheduled).getTime() -
-            new Date(flight.departure.scheduled).getTime()) /
-            60000
-        ),
-      status: flight.flight_status,
-      aircraft: flight.aircraft?.icao || "Information not available",
-      terminal: {
-        departure: flight.departure.terminal || "-",
-        arrival: flight.arrival.terminal || "-",
-      },
-    }));
-
-    // Log the transformed flights data
-    console.log(
-      "Transformed Flights Data:",
-      JSON.stringify(transformedFlights, null, 2)
-    );
-
-    return NextResponse.json(transformedFlights);
-  } catch (error) {
-    console.error("Flight search error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch flights" },
-      { status: 500 }
-    );
-  }
-}
-
-// Keep the existing generateMockFlights function as fallback
+// Mock flight data generator
 const generateMockFlights = (params: FlightSearchParams) => {
   const airlines = [
     "American Airlines",
@@ -175,3 +76,25 @@ const generateMockFlights = (params: FlightSearchParams) => {
     );
   });
 };
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { origin, destination, departureDate } = body;
+
+    // Generate mock flights instead of calling the real API
+    const mockFlights = generateMockFlights({
+      origin,
+      destination,
+      departureDate,
+    });
+
+    return NextResponse.json(mockFlights);
+  } catch (error) {
+    console.error("Flight search error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch flights" },
+      { status: 500 }
+    );
+  }
+}
