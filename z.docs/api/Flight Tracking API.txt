@@ -1,0 +1,68 @@
+Flight Number: 2459
+Airline Name: American Airlines (AA)
+Date: 02/21/2025
+
+
+Request URL's
+-------------
+
+curl -X GET "https://api.flightapi.io/airline/67ae9e18d612a6dd77ed6b0f?num=2459&name=AA&date=20250221"
+
+----------------------------
+
+PYTHON
+
+import requests
+
+response = requests.get("https://api.flightapi.io/airline/67ae9e18d612a6dd77ed6b0f?num=2459&name=AA&date=20250221")
+print(response.json())
+
+----------------------------
+
+Node.js
+
+const axios = require('axios');
+
+axios.get("https://api.flightapi.io/airline/67ae9e18d612a6dd77ed6b0f?num=2459&name=AA&date=20250221")
+  .then(response => console.log(response.data))
+  .catch(error => console.error(error));
+
+----------------------------
+
+
+Output
+
+[
+  {
+    "departure": [
+      {
+        "Status:": "Arrived",
+        "Airport:": "JFK",
+        "Scheduled Time:": "9:23 AM, Feb 12",
+        "Terminal - Gate:": null
+      },
+      {
+        "Status:": "Arrived",
+        "Airport:": "SNA",
+        "Scheduled Time:": "1:49 PM, Feb 12",
+        "Terminal - Gate:": null
+      }
+    ]
+  },
+  {
+    "arrival": [
+      {
+        "Status:": "Arrived",
+        "Airport:": "SNA",
+        "Scheduled Time:": "12:44 PM, Feb 12",
+        "Terminal - Gate:": null
+      },
+      {
+        "Status:": "Arrived",
+        "Airport:": "JFK",
+        "Scheduled Time:": "9:31 PM, Feb 12",
+        "Terminal - Gate:": null
+      }
+    ]
+  }
+]
