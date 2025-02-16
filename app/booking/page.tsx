@@ -641,135 +641,115 @@ export default function BookingPage() {
                     key={flight.id}
                     className="p-6 hover:shadow-md transition-shadow"
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-4">
-                        <div>
-                          <h3 className="text-xl font-semibold flex items-center gap-2">
-                            <Plane className="h-5 w-5 text-primary" />
-                            {flight.airline}
-                          </h3>
+                    <div className="flex flex-col space-y-6">
+                      {/* Header: Airline, Flight Number, Price */}
+                      <div className="flex justify-between items-start flex-wrap gap-4">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <p className="text-muted-foreground">
+                            <Plane className="h-5 w-5 text-primary" />
+                            <h3 className="text-xl font-semibold">
+                              {flight.airline}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">
                               Flight {flight.flightNumber}
                             </p>
                             {flight.status && (
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${
-                                  flight.status === "active"
-                                    ? "bg-green-100 text-green-800"
-                                    : flight.status === "scheduled"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {flight.status.toUpperCase()}
+                              <span className="px-2 py-0.5 rounded-full text-xs uppercase bg-green-100 text-green-800 font-medium">
+                                {flight.status}
                               </span>
                             )}
                           </div>
                         </div>
+                        <div className="text-right">
+                          <p className="text-3xl font-bold">${flight.price}</p>
+                          <Button
+                            onClick={() => handleBooking(flight)}
+                            className="mt-2"
+                            variant="default"
+                          >
+                            Select Flight
+                          </Button>
+                        </div>
+                      </div>
 
-                        <div className="flex items-center gap-8">
-                          {/* Left side: Departure */}
-                          <div className="flex flex-col items-start">
-                            <p className="text-2xl font-semibold">
-                              {flight.departureTime}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {flight.origin}
-                            </p>
-                            {flight.terminal?.departure && (
-                              <p className="text-xs text-muted-foreground">
-                                Terminal {flight.terminal.departure}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Middle: Flight duration line with plane */}
-                          <div className="flex-1 flex flex-col items-center self-baseline mt-[3px]">
-                            <div className="w-full flex items-center gap-2 text-muted-foreground">
-                              •
-                              <div className="h-[1px] w-[100px] flex-1 border-t-[2.5px] border-dashed border-gray-300" />
-                              <Plane className="h-4 w-4 text-muted-foreground rotate-45" />
-                              <div className="h-[1px] w-[100px] flex-1 border-t-[2.5px] border-dashed border-gray-300" />
-                              •
-                            </div>
-                            <span className="text-xs text-muted-foreground mt-1">
-                              {Math.floor(flight.duration / 60)}h{" "}
-                              {flight.duration % 60}m • Direct
-                            </span>
-                          </div>
-
-                          {/* Right side: Arrival */}
-                          <div className="flex flex-col items-end">
-                            <p className="text-2xl font-semibold">
-                              {flight.arrivalTime}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {flight.destination}
-                            </p>
-                            {flight.terminal?.arrival && (
-                              <p className="text-xs text-muted-foreground">
-                                Terminal {flight.terminal.arrival}
-                              </p>
-                            )}
-                          </div>
+                      {/* Flight Times and Route */}
+                      <div className="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-12">
+                        {/* Departure */}
+                        <div className="flex flex-col">
+                          <p className="text-2xl font-bold">
+                            {flight.departureTime}
+                          </p>
+                          <p className="text-base font-medium">
+                            {flight.origin.split("(")[0].trim()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Terminal {flight.terminal?.departure || "A"}
+                          </p>
                         </div>
 
-                        {flight.aircraft && (
-                          <p className="text-sm text-muted-foreground">
-                            Aircraft: {flight.aircraft}
+                        {/* Flight Path */}
+                        <div className="flex-1 flex flex-col items-center min-w-[150px]">
+                          <div className="w-full flex items-center gap-2">
+                            <span className="text-[#9f9f9f]">•</span>
+                            <div className="h-[1px] flex-1 border-t-2 border-dashed border-[#9f9f9f]" />
+                            <Plane className="h-4 w-4 text-[#9f9f9f] rotate-45" />
+                            <div className="h-[1px] flex-1 border-t-2 border-dashed border-[#9f9f9f]" />
+                            <span className="text-[#9f9f9f]">•</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {Math.floor(flight.duration / 60)}h{" "}
+                            {flight.duration % 60}m • Direct
                           </p>
-                        )}
+                        </div>
+
+                        {/* Arrival */}
+                        <div className="flex flex-col items-end">
+                          <p className="text-2xl font-bold">
+                            {flight.arrivalTime}
+                          </p>
+                          <p className="text-base font-medium">
+                            {flight.destination.split("(")[0].trim()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Terminal {flight.terminal?.arrival || "A"}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-3xl font-bold text-primary">
-                          ${flight.price}
-                        </p>
-                        <Button
-                          onClick={() => handleBooking(flight)}
-                          className="mt-4"
-                          size="lg"
-                        >
-                          Select Flight
-                        </Button>
-                      </div>
-                    </div>
+                      {/* Aircraft Info */}
+                      <p className="text-sm text-muted-foreground">
+                        Aircraft: {flight.aircraft || "Boeing 737"}
+                      </p>
 
-                    <Separator className="my-4" />
-
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Insurance Options</h4>
-                      <RadioGroup
-                        onValueChange={setSelectedInsurance}
-                        value={selectedInsurance || undefined}
-                        className="grid grid-cols-3 gap-4"
-                      >
-                        {insuranceOptions.map((option) => (
-                          <Card
-                            key={option.id}
-                            className={`p-4 cursor-pointer transition-all ${
-                              selectedInsurance === option.id
-                                ? "border-primary shadow-md"
-                                : "hover:border-primary/50"
-                            }`}
-                            onClick={() => setSelectedInsurance(option.id)}
-                          >
-                            <RadioGroupItem
-                              value={option.id}
-                              id={option.id}
-                              className="hidden"
-                            />
-                            <div className="space-y-2">
-                              <h5 className="font-medium">{option.name}</h5>
-                              <p className="text-sm text-muted-foreground">
-                                {option.description}
-                              </p>
-                              <p className="font-bold">${option.price}</p>
+                      {/* Insurance Options */}
+                      <div className="space-y-4 pt-4 border-t">
+                        <h4 className="font-medium">Insurance Options</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {insuranceOptions.map((option) => (
+                            <div
+                              key={option.id}
+                              className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                selectedInsurance === option.id
+                                  ? "border-primary bg-primary/5"
+                                  : "hover:border-primary/50"
+                              }`}
+                              onClick={() => setSelectedInsurance(option.id)}
+                            >
+                              <div className="space-y-2">
+                                <h5 className="font-medium">{option.name}</h5>
+                                <p className="text-sm text-muted-foreground">
+                                  {option.description}
+                                </p>
+                                <p className="text-lg font-bold">
+                                  ${option.price}
+                                </p>
+                              </div>
                             </div>
-                          </Card>
-                        ))}
-                      </RadioGroup>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </Card>
                 ))}
