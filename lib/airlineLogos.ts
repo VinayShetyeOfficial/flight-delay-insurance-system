@@ -1,83 +1,57 @@
-// Map of airline names to their logo paths
-export const airlineLogos: { [key: string]: string } = {
-  "American Airlines": "/assets/airlines/airline-american.png",
-  "Delta Air Lines": "/assets/airlines/airline-delta.png",
-  "JetBlue Airways": "/assets/airlines/airline-jetblue.png",
-  "Southwest Airlines": "/assets/airlines/airline-southwest.png",
-  "United Airlines": "/assets/airlines/airline-united.png",
-  Lufthansa: "/assets/airlines/airline-lufthansa.png",
-  Emirates: "/assets/airlines/airline-emirates.png",
-  "Qatar Airways": "/assets/airlines/airline-qatar.png",
-  "British Airways": "/assets/airlines/airline-british.png",
+// Base URL for airline logos
+const AVIASALES_BASE_URL = "http://pics.avs.io";
+const DEFAULT_SIZE = 64; // Increased from 32 to 64 for better quality
+const USE_RETINA = true; // Enable retina quality
+
+// Utility function to generate logo URL
+export const generateLogoUrl = (
+  iataCode: string,
+  useRetina: boolean = true // Default to retina
+): string => {
+  const retinaPrefix = useRetina ? "@2x" : "";
+  return `${AVIASALES_BASE_URL}/${DEFAULT_SIZE}/${DEFAULT_SIZE}/${iataCode}${retinaPrefix}.png`;
 };
 
-// Utility function to get logo path by airline name
+// Airline codes mapping
+export const airlineCodes: { [key: string]: string } = {
+  "American Airlines": "AA",
+  "Delta Air Lines": "DL",
+  "JetBlue Airways": "B6",
+  "Southwest Airlines": "WN",
+  "United Airlines": "UA",
+  Lufthansa: "LH",
+  Emirates: "EK",
+  "Qatar Airways": "QR",
+  "British Airways": "BA",
+};
+
+// Utility function to get logo URL by airline name
 export const getAirlineLogo = (airlineName: string): string => {
-  const logo = airlineLogos[airlineName];
-  return logo || "/assets/airlines/airline-default.png"; // Fallback to default if not found
+  const iataCode = airlineCodes[airlineName];
+  if (!iataCode) {
+    console.warn(`No IATA code found for airline: ${airlineName}`);
+    return generateLogoUrl("XX"); // Default fallback code
+  }
+  return generateLogoUrl(iataCode);
 };
 
 // Utility function to get airline name from code
 export const getAirlineNameFromCode = (code: string): string => {
-  const airlineCodes: { [key: string]: string } = {
-    AA: "American Airlines",
-    DL: "Delta Air Lines",
-    B6: "JetBlue Airways",
-    WN: "Southwest Airlines",
-    UA: "United Airlines",
-    LH: "Lufthansa",
-    EK: "Emirates",
-    QR: "Qatar Airways",
-    BA: "British Airways",
-  };
-  return airlineCodes[code] || code;
+  const airlines = Object.entries(airlineCodes);
+  const airline = airlines.find(([_, iataCode]) => iataCode === code);
+  return airline ? airline[0] : code;
 };
 
 // Export all airlines data
-export const airlines = [
-  {
-    code: "AA",
-    name: "American Airlines",
-    logo: "/assets/airlines/airline-american.png",
-  },
-  {
-    code: "DL",
-    name: "Delta Air Lines",
-    logo: "/assets/airlines/airline-delta.png",
-  },
-  {
-    code: "B6",
-    name: "JetBlue Airways",
-    logo: "/assets/airlines/airline-jetblue.png",
-  },
-  {
-    code: "WN",
-    name: "Southwest Airlines",
-    logo: "/assets/airlines/airline-southwest.png",
-  },
-  {
-    code: "UA",
-    name: "United Airlines",
-    logo: "/assets/airlines/airline-united.png",
-  },
-  {
-    code: "LH",
-    name: "Lufthansa",
-    logo: "/assets/airlines/airline-lufthansa.png",
-  },
-  {
-    code: "EK",
-    name: "Emirates",
-    logo: "/assets/airlines/airline-emirates.png",
-  },
-  {
-    code: "QR",
-    name: "Qatar Airways",
-    logo: "/assets/airlines/airline-qatar.png",
-  },
-  {
-    code: "BA",
-    name: "British Airways",
-    logo: "/assets/airlines/airline-british.png",
-  },
-];
+export const airlines = Object.entries(airlineCodes).map(([name, code]) => ({
+  code,
+  name,
+  logo: generateLogoUrl(code),
+}));
+
+// Types
+export interface Airline {
+  code: string;
+  name: string;
+  logo: string;
+}
