@@ -19,35 +19,41 @@ import {
   Plane,
   PlaneTakeoff,
   PlaneLanding,
+  User,
   Users,
+  Baby,
   Search,
   Filter,
   Clock,
   Loader2,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { flightService } from "../../lib/flightService";
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
-);
+// AI-Suggested imports
+import { format } from "date-fns";
 
-//
-// Zod Schema
-//
+// -----------------------------------------------------------------------------
+// Updated Zod Schema to match AI suggestion
+// -----------------------------------------------------------------------------
 const bookingSchema = z.object({
-  tripType: z.enum(["oneWay", "roundTrip"]),
   origin: z.string().min(3, "Origin must be at least 3 characters"),
   destination: z.string().min(3, "Destination must be at least 3 characters"),
   departureDate: z.date(),
-  returnDate: z.date().optional().nullable(),
-  passengers: z
-    .number()
-    .min(1, "At least 1 passenger is required")
-    .max(10, "Maximum 10 passengers allowed"),
-  class: z.enum(["economy", "business", "first"]),
+  returnDate: z.date().optional(),
+  adults: z.number().min(1, "At least 1 adult is required").max(9),
+  children: z.number().min(0).max(9),
+  infants: z.number().min(0).max(9),
+  class: z.enum(["Economy", "Business", "First"]),
+  currency: z.string().default("USD"),
 });
 
 type BookingForm = z.infer<typeof bookingSchema>;
+
+// Stripe
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
+);
 
 //
 // Insurance Options
@@ -96,6 +102,13 @@ export default function BookingPage() {
     formState: { errors },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      // Default values for new fields
+      adults: 1,
+      children: 0,
+      infants: 0,
+      currency: "USD",
+    },
   });
 
   // Watchers
@@ -120,28 +133,104 @@ export default function BookingPage() {
     }
   }, [departureDate, setValue, tripType]);
 
-  //
-  // Submit: fetch flights
-  //
-  const onSubmit = async (data: BookingForm) => {
+  // ---------------------------------------------------------------------------
+  // AI-Suggested: Updated searchFlights function with new fields & URL
+  // ---------------------------------------------------------------------------
+  const searchFlights = async (data: BookingForm) => {
     setIsLoading(true);
     try {
+      // Format the date to YYYY-MM-DD
+      const formattedDate = data.departureDate.toISOString().split("T")[0];
+
+      const searchParams = {
+        origin: data.origin.toUpperCase(),
+        destination: data.destination.toUpperCase(),
+        departureDate: formattedDate,
+        adults: data.adults,
+        children: data.children,
+        infants: data.infants,
+        class: data.class,
+        currency: data.currency,
+      };
+
       const response = await fetch("/api/flights/search", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchParams),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch flights");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const flightData = await response.json();
+
+      if (flightData.error) {
+        throw new Error(flightData.error);
+      }
+
       setFlights(flightData);
     } catch (error) {
+      console.error("Search error:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch flights. Please try again.",
+        description:
+          error instanceof Error ? error.message : "Failed to fetch flights",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  //
+  // onSubmit
+  //
+  const onSubmit = async (data: BookingForm) => {
+    setIsLoading(true);
+
+    try {
+      // Format the date to YYYY-MM-DD
+      const formattedDate = data.departureDate.toISOString().split("T")[0];
+
+      const searchParams = {
+        origin: data.origin.toUpperCase(),
+        destination: data.destination.toUpperCase(),
+        departureDate: formattedDate,
+        adults: data.adults,
+        children: data.children,
+        infants: data.infants,
+        class: data.class,
+        currency: data.currency,
+      };
+
+      const response = await fetch("/api/flights/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchParams),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const flightData = await response.json();
+
+      if (flightData.error) {
+        throw new Error(flightData.error);
+      }
+
+      setFlights(flightData);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to fetch flights",
         variant: "destructive",
       });
     } finally {
@@ -377,6 +466,11 @@ export default function BookingPage() {
                       />
                     )}
                   />
+                  {errors.departureDate && (
+                    <p className="text-destructive text-sm">
+                      {errors.departureDate.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Return Date */}
@@ -407,34 +501,81 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              {/* Passengers & Class */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Passengers: Adults, Children, Infants */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Adults */}
                 <div className="space-y-2">
-                  <Label>Number of Passengers</Label>
+                  <Label>Adults</Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("passengers", { valueAsNumber: true })}
+                      {...register("adults", { valueAsNumber: true })}
                       min={1}
-                      max={10}
-                      className="pl-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      max={9}
+                      className="pl-10"
                     />
                   </div>
-                  {errors.passengers && (
+                  {errors.adults && (
                     <p className="text-destructive text-sm">
-                      {errors.passengers.message}
+                      {errors.adults.message}
                     </p>
                   )}
                 </div>
 
+                {/* Children */}
+                <div className="space-y-2">
+                  <Label>Children (2-12)</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      {...register("children", { valueAsNumber: true })}
+                      min={0}
+                      max={9}
+                      defaultValue={0}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.children && (
+                    <p className="text-destructive text-sm">
+                      {errors.children.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Infants */}
+                <div className="space-y-2">
+                  <Label>Infants (0-2)</Label>
+                  <div className="relative">
+                    <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      {...register("infants", { valueAsNumber: true })}
+                      min={0}
+                      max={9}
+                      defaultValue={0}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.infants && (
+                    <p className="text-destructive text-sm">
+                      {errors.infants.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Class & Currency */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Class */}
                 <div className="space-y-2">
                   <Label>Class</Label>
                   <div className="relative">
-                    <Select {...register("class")} defaultValue="economy">
-                      <option value="economy">Economy</option>
-                      <option value="business">Business</option>
-                      <option value="first">First Class</option>
+                    <Select {...register("class")} defaultValue="Economy">
+                      <option value="Economy">Economy</option>
+                      <option value="Business">Business</option>
+                      <option value="First">First</option>
                     </Select>
                   </div>
                   {errors.class && (
@@ -442,6 +583,16 @@ export default function BookingPage() {
                       {errors.class.message}
                     </p>
                   )}
+                </div>
+
+                {/* Currency */}
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Input
+                    type="text"
+                    {...register("currency")}
+                    defaultValue="USD"
+                  />
                 </div>
               </div>
 
@@ -485,7 +636,7 @@ export default function BookingPage() {
 
             <Card className="border shadow-sm">
               <div className="p-4 space-y-4">
-                {filteredAndSortedFlights.map((flight: any) => (
+                {filteredAndSortedFlights.map((flight) => (
                   <Card
                     key={flight.id}
                     className="p-6 hover:shadow-md transition-shadow"
