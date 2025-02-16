@@ -17,29 +17,29 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   Plane,
+  Calendar,
   PlaneTakeoff,
   PlaneLanding,
   Users,
   Search,
   Filter,
   Clock,
+  Star,
   Loader2,
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
 );
 
-//
-// Zod Schema
-//
 const bookingSchema = z.object({
-  tripType: z.enum(["oneWay", "roundTrip"]),
   origin: z.string().min(3, "Origin must be at least 3 characters"),
   destination: z.string().min(3, "Destination must be at least 3 characters"),
   departureDate: z.date(),
-  returnDate: z.date().optional().nullable(),
+  returnDate: z.date().optional(),
   passengers: z
     .number()
     .min(1, "At least 1 passenger is required")
@@ -49,9 +49,6 @@ const bookingSchema = z.object({
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
-//
-// Insurance Options
-//
 const insuranceOptions = [
   {
     id: "basic",
@@ -73,6 +70,12 @@ const insuranceOptions = [
   },
 ];
 
+const isPastDate = (date: Date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+};
+
 export default function BookingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -85,7 +88,6 @@ export default function BookingPage() {
   const [priceRange, setPriceRange] = useState([0, 1000]);
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("price");
-  const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
 
   const {
     register,
@@ -98,46 +100,38 @@ export default function BookingPage() {
     resolver: zodResolver(bookingSchema),
   });
 
-  // Watchers
   const departureDate = watch("departureDate");
 
-  //
-  // If user is not logged in, redirect
-  //
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
 
-  //
-  // If departure date changes, default return date to the same day
-  // (only if we don't have a value already).
-  //
   useEffect(() => {
-    if (departureDate && tripType === "roundTrip") {
+    if (departureDate) {
       setValue("returnDate", departureDate);
     }
-  }, [departureDate, setValue, tripType]);
+  }, [departureDate, setValue]);
 
-  //
-  // Submit: fetch flights
-  //
   const onSubmit = async (data: BookingForm) => {
     setIsLoading(true);
+
     try {
       const response = await fetch("/api/flights/search", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const flightData = await response.json();
+        setFlights(flightData);
+      } else {
         throw new Error("Failed to fetch flights");
       }
-
-      const flightData = await response.json();
-      setFlights(flightData);
     } catch (error) {
       toast({
         title: "Error",
@@ -149,9 +143,6 @@ export default function BookingPage() {
     }
   };
 
-  //
-  // Handle booking: create Stripe session
-  //
   const handleBooking = async (flight: any) => {
     if (status !== "authenticated") {
       toast({
@@ -168,13 +159,16 @@ export default function BookingPage() {
       const insuranceOption = insuranceOptions.find(
         (option) => option.id === selectedInsurance
       );
+
       if (!insuranceOption) {
         throw new Error("Please select an insurance option");
       }
 
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           flight: {
             id: flight.id,
@@ -196,6 +190,7 @@ export default function BookingPage() {
       });
 
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to create checkout session");
       }
@@ -227,9 +222,6 @@ export default function BookingPage() {
     }
   };
 
-  //
-  // Filter + Sort flights
-  //
   const filteredAndSortedFlights = flights
     .filter(
       (flight: any) =>
@@ -244,16 +236,10 @@ export default function BookingPage() {
       return 0;
     });
 
-  //
-  // Gather unique airlines
-  //
   const airlines = Array.from(
     new Set(flights.map((flight: any) => flight.airline))
   );
 
-  //
-  // Loading state
-  //
   if (status === "loading") {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -264,13 +250,9 @@ export default function BookingPage() {
     );
   }
 
-  //
-  // Render
-  //
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
-        {/* Page Header */}
         <div className="flex flex-col space-y-2 mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Flight Booking</h1>
           <p className="text-muted-foreground">
@@ -278,50 +260,9 @@ export default function BookingPage() {
           </p>
         </div>
 
-        {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Trip Type Selection */}
-              <div className="space-y-2">
-                <Label>Trip Type</Label>
-                <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
-                  <Button
-                    type="button"
-                    className={`px-4 py-2 transition-colors
-                      ${
-                        tripType === "roundTrip"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                    onClick={() => {
-                      setTripType("roundTrip");
-                      setValue("tripType", "roundTrip");
-                    }}
-                  >
-                    <Plane className="mr-2 h-4 w-4 rotate-45" />
-                    Round Trip
-                  </Button>
-                  <Button
-                    type="button"
-                    className={`px-4 py-2 transition-colors
-                      ${
-                        tripType === "oneWay"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                    onClick={() => {
-                      setTripType("oneWay");
-                      setValue("tripType", "oneWay");
-                      setValue("returnDate", null);
-                    }}
-                  >
-                    <Plane className="mr-2 h-4 w-4" />
-                    One Way
-                  </Button>
-                </div>
-              </div>
-
               {/* Origin & Destination */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -353,53 +294,41 @@ export default function BookingPage() {
                       className="pl-10"
                     />
                   </div>
-                  {errors.destination && (
-                    <p className="text-destructive text-sm">
-                      {errors.destination.message}
-                    </p>
-                  )}
                 </div>
               </div>
 
               {/* Dates */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Departure Date */}
                 <div className="space-y-2">
                   <Label>Departure Date</Label>
-                  <Controller
-                    name="departureDate"
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        date={field.value}
-                        setDate={(val) => field.onChange(val)}
-                        disablePastDates
-                      />
-                    )}
-                  />
+                  <div className="relative">
+                    <Controller
+                      name="departureDate"
+                      control={control}
+                      render={({ field }) => (
+                        <DatePicker
+                          date={field.value}
+                          setDate={(date) => field.onChange(date)}
+                          disablePastDates={true}
+                        />
+                      )}
+                    />
+                  </div>
                 </div>
 
-                {/* Return Date */}
                 <div className="space-y-2">
-                  <Label
-                    className={
-                      tripType === "oneWay" ? "text-muted-foreground" : ""
-                    }
-                  >
-                    Return Date
-                  </Label>
-                  <div className={tripType === "oneWay" ? "opacity-100" : ""}>
+                  <Label>Return Date (Optional)</Label>
+                  <div className="relative">
                     <Controller
                       name="returnDate"
                       control={control}
                       render={({ field }) => (
                         <DatePicker
                           date={field.value}
-                          setDate={(val) => field.onChange(val)}
-                          disablePastDates
-                          minDate={watch("departureDate")}
-                          defaultMonth={watch("departureDate")}
-                          disabled={tripType === "oneWay"}
+                          setDate={(date) => field.onChange(date)}
+                          disablePastDates={true}
+                          minDate={departureDate}
+                          defaultMonth={departureDate}
                         />
                       )}
                     />
@@ -421,11 +350,6 @@ export default function BookingPage() {
                       className="pl-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
-                  {errors.passengers && (
-                    <p className="text-destructive text-sm">
-                      {errors.passengers.message}
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -437,11 +361,6 @@ export default function BookingPage() {
                       <option value="first">First Class</option>
                     </Select>
                   </div>
-                  {errors.class && (
-                    <p className="text-destructive text-sm">
-                      {errors.class.message}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -469,7 +388,6 @@ export default function BookingPage() {
           </CardContent>
         </Card>
 
-        {/* Flight Results */}
         {flights.length > 0 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
