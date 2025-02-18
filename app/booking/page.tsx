@@ -87,6 +87,8 @@ export default function BookingPage() {
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("price");
   const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
+  const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const {
     register,
@@ -348,6 +350,53 @@ export default function BookingPage() {
       </div>
     );
   }
+
+  //
+  // Handle Show More
+  //
+  const handleShowMore = async () => {
+    setIsLoadingMore(true);
+    try {
+      // Add a small delay to show loading state (optional)
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setDisplayCount((prevCount) => Math.min(prevCount + 8, flights.length));
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  // Add a function to handle initial flight results
+  const handleSearchSubmit = async (data: BookingForm) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/flights/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch flights");
+      }
+
+      const flightResults = await response.json();
+      setFlights(flightResults);
+      setDisplayCount(10); // Reset display count to 10 when new search is performed
+
+      // Scroll to results
+      document
+        .getElementById("flight-results")
+        ?.scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch flights. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   //
   // Render
@@ -619,9 +668,15 @@ export default function BookingPage() {
 
         {/* Flight Results */}
         {flights.length > 0 && (
-          <div className="space-y-6">
+          <div className="space-y-6" id="flight-results">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Available Flights</h2>
+              <div>
+                <h2 className="text-2xl font-bold">Available Flights</h2>
+                <p className="text-sm text-muted-foreground">
+                  Showing {Math.min(displayCount, flights.length)} of{" "}
+                  {flights.length} flights
+                </p>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -632,7 +687,7 @@ export default function BookingPage() {
             </div>
 
             <div className="space-y-4">
-              {filteredAndSortedFlights.map((flight) => (
+              {flights.slice(0, displayCount).map((flight: any) => (
                 <FlightCard
                   key={flight.id}
                   airline={flight.airline}
@@ -650,6 +705,29 @@ export default function BookingPage() {
                 />
               ))}
             </div>
+
+            {/* Show More Button */}
+            {displayCount < flights.length && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  onClick={handleShowMore}
+                  variant="showMore"
+                  className="w-full max-w-md py-6 text-base"
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading more...
+                    </div>
+                  ) : (
+                    `Show More Flights (${
+                      flights.length - displayCount
+                    } remaining)`
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Insurance Options */}
             <Card className="mt-8">
