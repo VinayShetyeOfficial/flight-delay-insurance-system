@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Building2, Clock, Plane } from "lucide-react";
+import { useEffect } from "react";
 
 // Add status styles helper
 const getStatusStyles = (status: string) => {
@@ -49,6 +50,43 @@ export default function FlightCard({
   aircraft,
   onSelect,
 }: FlightCardProps) {
+  // Add console log when the card is rendered
+  useEffect(() => {
+    console.group(`Flight Details: ${flightNumber}`);
+    console.log({
+      airline,
+      flightNumber,
+      origin,
+      destination,
+      departureTime,
+      arrivalTime,
+      duration,
+      price,
+      status,
+      terminal,
+      aircraft,
+    });
+    console.groupEnd();
+  }, [
+    airline,
+    flightNumber,
+    origin,
+    destination,
+    departureTime,
+    arrivalTime,
+    duration,
+    price,
+    status,
+    terminal,
+    aircraft,
+  ]);
+
+  const formatDuration = (durationMinutes: number) => {
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="p-6 space-y-6">
@@ -105,7 +143,7 @@ export default function FlightCard({
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {Math.floor(duration / 60)}h {duration % 60}m • Direct
+              {formatDuration(duration)} • Direct
             </div>
           </div>
 
