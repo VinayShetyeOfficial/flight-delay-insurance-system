@@ -69,7 +69,8 @@ flight-delay-insurance
 │ ├── emailTemplates.ts
 │ ├── airports.ts
 │ ├── flightService.ts
-│ └── airlineLogos.ts
+│ ├── airlineLogos.ts
+│ └── amadeus.ts
 ├── prisma
 │ └── schema.prisma
 ├── public
