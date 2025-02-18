@@ -1,0 +1,19 @@
+Link: https://support.travelpayouts.com/hc/en-us/articles/203956073-Airline-logos-by-Aviasales
+
+## Airline logos by Aviasales
+
+Logos of airlines are available at the URL:
+http://pics.avs.io/width/height/iata.png
+
+where width - the width of the logo, height - the height of the logo, and iata - the IATA code of the airline. The size can be anything.
+
+For example: http://pics.avs.io/200/200/UN.png.
+
+Logos for retina
+To get logos for iOS in retina resolution, use the additive @2x in the link to the logo:
+
+http://pics.avs.io/122/56/{IATA}@2x.png.
+
+For example: http://pics.avs.io/200/200/UN@2x.png
+
+If you are looking for square or vector airline logos check it out on Airhex: https://airhex.com.
