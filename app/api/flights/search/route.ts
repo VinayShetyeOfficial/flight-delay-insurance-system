@@ -8,6 +8,25 @@ interface FlightSearchParams {
   departureDate: string;
 }
 
+// Add type for flight data
+interface FlightData {
+  id: string;
+  airline: string;
+  flightNumber: string;
+  origin: string;
+  destination: string;
+  departureTime: string;
+  arrivalTime: string;
+  price: number;
+  duration: number;
+  status: string;
+  aircraft: string;
+  terminal: {
+    departure: string;
+    arrival: string;
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -97,13 +116,65 @@ export async function POST(request: Request) {
       return NextResponse.json(transformedFlights);
     }
 
-    // Fallback to mock data if USE_REAL_FLIGHT_API is false
-    const mockFlights = generateMockFlights({
-      origin,
-      destination,
-      departureDate,
+    // Generate 10-30 flights for variety
+    const numberOfFlights = Math.floor(Math.random() * 20) + 10;
+    const flights: FlightData[] = [];
+
+    for (let i = 0; i < numberOfFlights; i++) {
+      // Generate departure time between 6 AM and 10 PM
+      const departureHour = Math.floor(Math.random() * 16) + 6;
+      const departureMinute = Math.floor(Math.random() * 60);
+      const durationMinutes = Math.floor(Math.random() * 120) + 60; // 1-3 hours
+
+      const departureTime = new Date(departureDate);
+      departureTime.setHours(departureHour, departureMinute);
+
+      const arrivalTime = new Date(
+        departureTime.getTime() + durationMinutes * 60000
+      );
+
+      flights.push({
+        id: `FL${Math.floor(Math.random() * 9000) + 1000}`,
+        airline: "Mock Airline",
+        flightNumber: `${Math.floor(Math.random() * 9000) + 1000}`,
+        origin: origin,
+        destination: destination,
+        departureTime: departureTime.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        arrivalTime: arrivalTime.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        price: Math.floor(Math.random() * (800 - 200) + 200),
+        duration: durationMinutes,
+        status: "scheduled",
+        aircraft: "Mock Aircraft",
+        terminal: {
+          departure: "Mock Terminal",
+          arrival: "Mock Terminal",
+        },
+      });
+    }
+
+    // Sort flights by departure time and price
+    flights.sort((a, b) => {
+      // First sort by departure time
+      const timeCompare =
+        new Date(a.departureTime).getTime() -
+        new Date(b.departureTime).getTime();
+
+      // If departure times are equal, sort by price
+      if (timeCompare === 0) {
+        return a.price - b.price;
+      }
+      return timeCompare;
     });
-    return NextResponse.json(mockFlights);
+
+    return NextResponse.json(flights);
   } catch (error) {
     console.error("Flight search error:", error);
     return NextResponse.json(
