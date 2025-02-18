@@ -130,12 +130,11 @@ export default function BookingPage() {
     setValue("tripType", type);
 
     if (type === "oneWay") {
+      // Always clear return date for one-way
       setValue("returnDate", undefined);
     } else if (type === "roundTrip" && departureDate) {
-      // Set return date to day after departure date if not already set
-      if (!returnDate) {
-        setValue("returnDate", addDays(departureDate, 1));
-      }
+      // Set return date when switching to round trip
+      setValue("returnDate", addDays(departureDate, 1));
     }
   };
 
@@ -150,6 +149,9 @@ export default function BookingPage() {
       if (!returnDate) {
         setValue("returnDate", addDays(departureDate, 1));
       }
+    } else if (currentTripType === "oneWay") {
+      // Always ensure return date is undefined for one-way trips
+      setValue("returnDate", undefined);
     }
   }, [departureDate, returnDate, currentTripType, setValue]);
 
@@ -545,6 +547,11 @@ export default function BookingPage() {
                         disabled={tripType === "oneWay"}
                         minDate={departureDate || undefined}
                         clearable={false}
+                        placeholder={
+                          tripType === "oneWay"
+                            ? "Not Applicable"
+                            : "Pick a date"
+                        }
                       />
                     )}
                   />
