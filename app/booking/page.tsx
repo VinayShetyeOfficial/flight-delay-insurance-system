@@ -32,14 +32,14 @@ import FlightCard from "@/components/flight-card";
 // Updated Zod Schema to match AI suggestion
 // -----------------------------------------------------------------------------
 const bookingSchema = z.object({
-  origin: z.string().min(3, "Origin must be at least 3 characters"),
-  destination: z.string().min(3, "Destination must be at least 3 characters"),
+  origin: z.string().length(3, "Airport code must be 3 characters"),
+  destination: z.string().length(3, "Airport code must be 3 characters"),
   departureDate: z.date(),
   returnDate: z.date().optional(),
   adults: z.number().min(1, "At least 1 adult is required").max(9),
   children: z.number().min(0).max(9),
   infants: z.number().min(0).max(9),
-  class: z.enum(["Economy", "Business", "First"]),
+  class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
   currency: z.string().default("USD"),
 });
 
@@ -134,45 +134,44 @@ export default function BookingPage() {
   const searchFlights = async (data: BookingForm) => {
     setIsLoading(true);
     try {
-      // Format the date to YYYY-MM-DD
-      const formattedDate = data.departureDate.toISOString().split("T")[0];
-
-      const searchParams = {
-        origin: data.origin.toUpperCase(),
-        destination: data.destination.toUpperCase(),
-        departureDate: formattedDate,
-        adults: data.adults,
-        children: data.children,
-        infants: data.infants,
-        class: data.class,
-        currency: data.currency,
-      };
-
       const response = await fetch("/api/flights/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(searchParams),
+        body: JSON.stringify({
+          origin: data.origin,
+          destination: data.destination,
+          departureDate: data.departureDate.toISOString().split("T")[0],
+          returnDate: data.returnDate
+            ? data.returnDate.toISOString().split("T")[0]
+            : undefined,
+          adults: data.adults,
+          children: data.children || 0,
+          infants: data.infants || 0,
+          class: data.class,
+          currency: data.currency,
+        }),
       });
 
+      const flights = await response.json();
+
+      // Add console logs here
+      console.group("Flight Search Results");
+      console.log("Search Parameters:", data);
+      console.log("Raw API Response:", flights);
+      console.groupEnd();
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error("Flight search failed");
       }
 
-      const flightData = await response.json();
-
-      if (flightData.error) {
-        throw new Error(flightData.error);
-      }
-
-      setFlights(flightData);
+      setFlights(flights);
     } catch (error) {
-      console.error("Search error:", error);
+      console.error("Flight Search Error:", error);
       toast({
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to fetch flights",
+        description: "Failed to search flights. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -570,9 +569,10 @@ export default function BookingPage() {
                   <Label>Class</Label>
                   <div className="relative">
                     <Select {...register("class")} defaultValue="Economy">
-                      <option value="Economy">Economy</option>
-                      <option value="Business">Business</option>
-                      <option value="First">First</option>
+                      <option value="ECONOMY">Economy</option>
+                      <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                      <option value="BUSINESS">Business</option>
+                      <option value="FIRST">First</option>
                     </Select>
                   </div>
                   {errors.class && (
