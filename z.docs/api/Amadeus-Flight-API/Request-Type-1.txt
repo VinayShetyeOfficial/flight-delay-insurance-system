@@ -1,6 +1,10 @@
+QUICK START:
+------------
+
 Link: https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/quick-start/#creating-the-request
 
 REQUEST EXMPLE:
+---------------
 vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
 $ curl 'https://test.api.amadeus.com/v1/shopping/flight-destinations?origin=PAR&maxPrice=200' \
       -H 'Authorization: Bearer ABCDEFGH12345'
