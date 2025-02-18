@@ -25,6 +25,7 @@ import {
   Filter,
   Loader2,
 } from "lucide-react";
+import { addDays } from "date-fns";
 
 import FlightCard from "@/components/flight-card";
 
@@ -41,6 +42,7 @@ const bookingSchema = z.object({
   infants: z.number().min(0).max(9),
   class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
   currency: z.string().default("USD"),
+  tripType: z.enum(["oneWay", "roundTrip"]),
 });
 
 type BookingForm = z.infer<typeof bookingSchema>;
@@ -100,16 +102,18 @@ export default function BookingPage() {
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
-      // Default values for new fields
       adults: 1,
       children: 0,
       infants: 0,
       currency: "USD",
+      tripType: "roundTrip",
     },
   });
 
-  // Watchers
+  // Watch both dates and trip type
   const departureDate = watch("departureDate");
+  const returnDate = watch("returnDate");
+  const currentTripType = watch("tripType");
 
   //
   // If user is not logged in, redirect
@@ -120,15 +124,34 @@ export default function BookingPage() {
     }
   }, [status, router]);
 
-  //
-  // If departure date changes, default return date to the same day
-  // (only if we don't have a value already).
-  //
-  useEffect(() => {
-    if (departureDate && tripType === "roundTrip") {
-      setValue("returnDate", departureDate);
+  // Handle trip type change
+  const handleTripTypeChange = (type: "oneWay" | "roundTrip") => {
+    setTripType(type);
+    setValue("tripType", type);
+
+    if (type === "oneWay") {
+      setValue("returnDate", undefined);
+    } else if (type === "roundTrip" && departureDate) {
+      // Set return date to day after departure date if not already set
+      if (!returnDate) {
+        setValue("returnDate", addDays(departureDate, 1));
+      }
     }
-  }, [departureDate, setValue, tripType]);
+  };
+
+  // Update return date when departure date changes (for round trip only)
+  useEffect(() => {
+    if (currentTripType === "roundTrip" && departureDate) {
+      // If return date is before departure date, update it
+      if (returnDate && returnDate < departureDate) {
+        setValue("returnDate", addDays(departureDate, 1));
+      }
+      // If no return date is set, set it to next day
+      if (!returnDate) {
+        setValue("returnDate", addDays(departureDate, 1));
+      }
+    }
+  }, [departureDate, returnDate, currentTripType, setValue]);
 
   // ---------------------------------------------------------------------------
   // AI-Suggested: Updated searchFlights function with new fields & URL
@@ -422,33 +445,24 @@ export default function BookingPage() {
                 <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
                   <Button
                     type="button"
-                    className={`px-4 py-2 transition-colors
-                      ${
-                        tripType === "roundTrip"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                    onClick={() => {
-                      setTripType("roundTrip");
-                      setValue("tripType", "roundTrip");
-                    }}
+                    className={`px-4 py-2 transition-colors ${
+                      tripType === "roundTrip"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-transparent"
+                    }`}
+                    onClick={() => handleTripTypeChange("roundTrip")}
                   >
                     <Plane className="mr-2 h-4 w-4 rotate-45" />
                     Round Trip
                   </Button>
                   <Button
                     type="button"
-                    className={`px-4 py-2 transition-colors
-                      ${
-                        tripType === "oneWay"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                    onClick={() => {
-                      setTripType("oneWay");
-                      setValue("tripType", "oneWay");
-                      setValue("returnDate", null);
-                    }}
+                    className={`px-4 py-2 transition-colors ${
+                      tripType === "oneWay"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-transparent"
+                    }`}
+                    onClick={() => handleTripTypeChange("oneWay")}
                   >
                     <Plane className="mr-2 h-4 w-4" />
                     One Way
@@ -496,8 +510,7 @@ export default function BookingPage() {
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Departure Date */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Departure Date</Label>
                   <Controller
@@ -506,8 +519,9 @@ export default function BookingPage() {
                     render={({ field }) => (
                       <DatePicker
                         date={field.value}
-                        setDate={(val) => field.onChange(val)}
+                        setDate={(date) => field.onChange(date)}
                         disablePastDates
+                        clearable={false}
                       />
                     )}
                   />
@@ -518,31 +532,22 @@ export default function BookingPage() {
                   )}
                 </div>
 
-                {/* Return Date */}
                 <div className="space-y-2">
-                  <Label
-                    className={
-                      tripType === "oneWay" ? "text-muted-foreground" : ""
-                    }
-                  >
-                    Return Date
-                  </Label>
-                  <div className={tripType === "oneWay" ? "opacity-100" : ""}>
-                    <Controller
-                      name="returnDate"
-                      control={control}
-                      render={({ field }) => (
-                        <DatePicker
-                          date={field.value}
-                          setDate={(val) => field.onChange(val)}
-                          disablePastDates
-                          minDate={watch("departureDate")}
-                          defaultMonth={watch("departureDate")}
-                          disabled={tripType === "oneWay"}
-                        />
-                      )}
-                    />
-                  </div>
+                  <Label>Return Date</Label>
+                  <Controller
+                    name="returnDate"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        date={field.value}
+                        setDate={(date) => field.onChange(date)}
+                        disablePastDates
+                        disabled={tripType === "oneWay"}
+                        minDate={departureDate || undefined}
+                        clearable={false}
+                      />
+                    )}
+                  />
                 </div>
               </div>
 
