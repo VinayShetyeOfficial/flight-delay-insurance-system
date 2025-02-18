@@ -1,6 +1,10 @@
+Flight Offers Search API
+------------------------
+
 Link: https://developers.amadeus.com/self-service/category/flights/api-doc/flight-offers-search/api-reference
 
 REQUEST EXMPLE:
+---------------
 vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
 curl 'https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=SYD&destinationLocationCode=BKK&departureDate=2025-02-20&returnDate=2025-02-28&adults=1&children=0&infants=0&travelClass=ECONOMY&nonStop=false&currencyCode=USD&maxPrice=3000&max=250' \
      -H 'Authorization: Bearer QaUiZESEZY2LNtvKK4G9o3zk2dLw'
