@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/popover";
 
 interface DatePickerProps {
-  date?: Date;
-  setDate: (date: Date | undefined) => void;
+  date?: Date | null;
+  setDate: (date: Date | null) => void;
   /**
    * Whether to disable all past dates. Default: true
    */
@@ -31,6 +31,8 @@ interface DatePickerProps {
    * Disables the entire picker (button + calendar).
    */
   disabled?: boolean;
+  placeholder?: string;
+  clearable?: boolean;
 }
 
 export function DatePicker({
@@ -40,6 +42,8 @@ export function DatePicker({
   minDate,
   defaultMonth,
   disabled = false,
+  placeholder = "Pick a date",
+  clearable = true,
 }: DatePickerProps) {
   /**
    * Function to determine if a given date should be disabled.
@@ -62,6 +66,10 @@ export function DatePicker({
     return false;
   };
 
+  const handleSelect = (day: Date | undefined) => {
+    setDate(day || null);
+  };
+
   /**
    * If no date is selected and `minDate` is valid, set it as the initial date.
    */
@@ -81,25 +89,23 @@ export function DatePicker({
           className={cn(
             "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground",
-            disabled &&
-              "bg-muted cursor-not-allowed opacity-100 hover:bg-muted hover:opacity-100"
+            disabled && "bg-muted cursor-not-allowed opacity-50"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : "Pick a date"}
+          {date ? format(date, "PPP") : placeholder}
         </Button>
       </PopoverTrigger>
 
-      {/* Only render the calendar if not disabled */}
       {!disabled && (
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
-            selected={date}
-            onSelect={setDate}
+            selected={date || undefined}
+            onSelect={handleSelect}
             disabled={disableDate}
             initialFocus
-            defaultMonth={defaultMonth || minDate || new Date()}
+            defaultMonth={date || defaultMonth || minDate || new Date()}
           />
         </PopoverContent>
       )}
