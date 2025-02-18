@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { amadeusService } from "@/lib/amadeus";
+import { parseISODuration } from "@/lib/utils";
 
 interface FlightSearchParams {
   origin: string;
@@ -9,93 +11,99 @@ interface FlightSearchParams {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { origin, destination, departureDate } = body;
+    const {
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      adults,
+      children,
+      infants,
+      class: travelClass,
+      currency,
+      maxPrice,
+    } = body;
 
-    if (process.env.USE_REAL_FLIGHT_API === "false") {
-      const mockFlights = generateMockFlights({
-        origin,
-        destination,
+    if (process.env.USE_REAL_FLIGHT_API === "true") {
+      const amadeusResponse = await amadeusService.searchFlights({
+        originLocationCode: origin,
+        destinationLocationCode: destination,
         departureDate,
+        returnDate,
+        adults,
+        children,
+        infants,
+        travelClass,
+        currencyCode: currency,
+        maxPrice,
+        max: 250,
+        nonStop: false,
       });
-      return NextResponse.json(mockFlights);
+
+      // Add console.log to see the raw response
+      console.log(
+        "Amadeus Raw Response:",
+        JSON.stringify(amadeusResponse, null, 2)
+      );
+
+      // Transform Amadeus response to match our frontend format
+      const transformedFlights = amadeusResponse.data.map((offer: any) => {
+        // Log individual offer for debugging
+        console.log("Processing offer:", JSON.stringify(offer, null, 2));
+
+        const { hours, minutes } = parseISODuration(
+          offer.itineraries[0].duration
+        );
+        const durationInMinutes = hours * 60 + minutes;
+
+        return {
+          id: offer.id,
+          airline: offer.validatingAirlineCodes[0],
+          flightNumber: offer.itineraries[0].segments[0].number,
+          origin: offer.itineraries[0].segments[0].departure.iataCode,
+          destination: offer.itineraries[0].segments[0].arrival.iataCode,
+          departureTime: new Date(
+            offer.itineraries[0].segments[0].departure.at
+          ).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
+          arrivalTime: new Date(
+            offer.itineraries[0].segments[0].arrival.at
+          ).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
+          price: parseFloat(offer.price.total),
+          duration: durationInMinutes, // Now passing minutes as a number
+          status: "SCHEDULED", // Amadeus doesn't provide real-time status
+          aircraft: offer.itineraries[0].segments[0].aircraft.code,
+          terminal: {
+            departure:
+              offer.itineraries[0].segments[0].departure.terminal || "-",
+            arrival: offer.itineraries[0].segments[0].arrival.terminal || "-",
+          },
+        };
+      });
+
+      // Log transformed flights
+      console.log(
+        "Transformed Flights:",
+        JSON.stringify(transformedFlights, null, 2)
+      );
+
+      return NextResponse.json(transformedFlights);
     }
 
-    // Format date to YYYY-MM-DD
-    const formattedDate = new Date(departureDate).toISOString().split("T")[0];
-
-    // Construct API URL with parameters
-    const apiUrl = new URL("https://api.aviationstack.com/v1/flights");
-    const params = {
-      access_key: process.env.FLIGHT_API_KEY || "",
-      dep_iata: origin,
-      arr_iata: destination,
-      flight_date: formattedDate,
-      limit: "10",
-    };
-
-    // Add parameters to URL
-    Object.entries(params).forEach(([key, value]) => {
-      apiUrl.searchParams.append(key, value);
+    // Fallback to mock data if USE_REAL_FLIGHT_API is false
+    const mockFlights = generateMockFlights({
+      origin,
+      destination,
+      departureDate,
     });
-
-    console.log("Fetching flights from:", apiUrl.toString());
-
-    const response = await fetch(apiUrl.toString());
-    const data = await response.json();
-
-    // Log the raw API response to help understand the structure
-    console.log("Aviation Stack API Response:", JSON.stringify(data, null, 2));
-
-    if (data.error) {
-      throw new Error(data.error.message || "Failed to fetch flights");
-    }
-
-    // Transform the API response to match our frontend expectations
-    const transformedFlights = data.data.map((flight: any) => ({
-      id: flight.flight.number,
-      airline: flight.airline.name,
-      flightNumber: flight.flight.iata,
-      origin: `${flight.departure.airport} (${flight.departure.iata})`,
-      destination: `${flight.arrival.airport} (${flight.arrival.iata})`,
-      departureTime: new Date(flight.departure.scheduled).toLocaleTimeString(
-        "en-US",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }
-      ),
-      arrivalTime: new Date(flight.arrival.scheduled).toLocaleTimeString(
-        "en-US",
-        {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }
-      ),
-      price: Math.floor(Math.random() * (800 - 200) + 200), // Still using random price as API doesn't provide it
-      duration:
-        flight.flight.duration ||
-        Math.floor(
-          (new Date(flight.arrival.scheduled).getTime() -
-            new Date(flight.departure.scheduled).getTime()) /
-            60000
-        ),
-      status: flight.flight_status,
-      aircraft: flight.aircraft?.icao || "Information not available",
-      terminal: {
-        departure: flight.departure.terminal || "-",
-        arrival: flight.arrival.terminal || "-",
-      },
-    }));
-
-    // Log the transformed flights data
-    console.log(
-      "Transformed Flights Data:",
-      JSON.stringify(transformedFlights, null, 2)
-    );
-
-    return NextResponse.json(transformedFlights);
+    return NextResponse.json(mockFlights);
   } catch (error) {
     console.error("Flight search error:", error);
     return NextResponse.json(
