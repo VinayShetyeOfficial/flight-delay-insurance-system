@@ -1,43 +1,4 @@
 flight-delay-insurance
-├── app
-│ ├── api
-│ │ ├── auth
-│ │ │ ├── [...nextauth]
-│ │ │ │ └── route.ts
-│ │ │ └── signup
-│ │ │ └── route.ts
-│ │ ├── flights
-│ │ │ └── search
-│ │ │ └── route.ts
-│ │ ├── bookings
-│ │ │ ├── confirmation
-│ │ │ │ └── route.ts
-│ │ │ └── route.ts
-│ │ ├── create-checkout-session
-│ │ │ └── route.ts
-│ │ ├── user
-│ │ │ └── profile
-│ │ │ └── route.ts
-│ │ ├── flight-status
-│ │ │ └── route.ts
-│ │ └── webhooks
-│ │ └── stripe
-│ │ └── route.ts
-│ ├── signup
-│ │ └── page.tsx
-│ ├── login
-│ │ └── page.tsx
-│ ├── booking
-│ │ ├── confirmation
-│ │ │ └── page.tsx
-│ │ └── page.tsx
-│ ├── profile
-│ │ └── page.tsx
-│ ├── dashboard
-│ │ └── page.tsx
-│ ├── globals.css
-│ ├── layout.tsx
-│ └── page.tsx
 ├── components
 │ ├── ui
 │ │ ├── accordion.tsx
@@ -97,7 +58,8 @@ flight-delay-insurance
 │ ├── theme-provider.tsx
 │ ├── ErrorBoundary.tsx
 │ ├── LoadingSpinner.tsx
-│ └── PricingCard.tsx
+│ ├── PricingCard.tsx
+│ └── flight-card.tsx
 ├── hooks
 │ ├── use-mobile.tsx
 │ └── use-toast.ts
@@ -106,80 +68,92 @@ flight-delay-insurance
 │ ├── email.ts
 │ ├── emailTemplates.ts
 │ ├── airports.ts
-│ └── flightService.ts
-├── public
-│ ├── placeholder-logo.png
-│ ├── placeholder-logo.svg
-│ ├── placeholder-user.jpg
-│ ├── placeholder.jpg
-│ └── placeholder.svg
+│ ├── flightService.ts
+│ └── airlineLogos.ts
 ├── prisma
 │ └── schema.prisma
-├── store
-│ └── bookingStore.ts
-├── .next
-│ ├── cache
-│ │ ├── swc
-│ │ │ └── plugins
-│ │ │ ├── v7_windows_x86_64_4.0.0
-│ │ │ └── v7_windows_x86_64_0.106.15
-│ │ ├── webpack
-│ │ │ ├── client-development
-│ │ │ │ ├── 1.pack.gz
-│ │ │ │ ├── 0.pack.gz
-│ │ │ │ ├── index.pack.gz
-│ │ │ │ └── index.pack.gz.old
-│ │ │ ├── server-development
-│ │ │ │ ├── 0.pack.gz
-│ │ │ │ ├── index.pack.gz
-│ │ │ │ └── index.pack.gz.old
-│ │ │ └── client-development-fallback
-│ │ │ ├── 0.pack.gz
-│ │ │ └── index.pack.gz.old
-│ │ └── .rscinfo
-│ ├── server
-│ │ ├── middleware-build-manifest.js
-│ │ ├── next-font-manifest.js
-│ │ ├── next-font-manifest.json
-│ │ ├── middleware-react-loadable-manifest.js
-│ │ ├── app-paths-manifest.json
-│ │ ├── pages-manifest.json
-│ │ ├── server-reference-manifest.js
-│ │ ├── server-reference-manifest.json
-│ │ ├── interception-route-rewrite-manifest.js
-│ │ └── middleware-manifest.json
-│ ├── static
-│ │ ├── development
-│ │ │ ├── \_ssgManifest.js
-│ │ │ └── \_buildManifest.js
-│ │ └── chunks
-│ │ └── polyfills.js
-│ ├── types
-│ │ └── package.json
-│ ├── package.json
-│ ├── react-loadable-manifest.json
-│ ├── build-manifest.json
-│ ├── app-build-manifest.json
-│ └── trace
+├── public
+│ ├── assets
+│ │ ├── airlines
+│ │ │ ├── airline-american.png
+│ │ │ ├── airline-delta.png
+│ │ │ ├── airline-jetblue.png
+│ │ │ ├── airline-southwest.png
+│ │ │ ├── airline-united.png
+│ │ │ ├── airline-lufthansa.png
+│ │ │ ├── airline-emirates.png
+│ │ │ ├── airline-qatar.png
+│ │ │ ├── airline-british.png
+│ │ │ └── Better Site.txt
+│ │ ├── icons
+│ │ ├── images
+│ │ │ └── misc
+│ │ └── branding
+│ └── Note.txt
 ├── scripts
 │ ├── test-db.ts
 │ └── test-db.js
+├── store
+│ └── bookingStore.ts
 ├── z.docs
 │ ├── api
+│ │ ├── Amadeus-Flight-API
+│ │ │ ├── Access-Token-generation.txt
+│ │ │ ├── Request-Type-1.txt
+│ │ │ ├── Request-Type-2.txt
+│ │ │ └── All-API-Services
 │ │ ├── Pricing API.txt
 │ │ ├── Airport Schedule API.txt
 │ │ └── Flight Tracking API.txt
 │ ├── stripe-test-cards.txt
 │ └── project-structure.md
+├── app
+│ ├── api
+│ │ ├── auth
+│ │ │ ├── [...nextauth]
+│ │ │ │ └── route.ts
+│ │ │ └── signup
+│ │ │ └── route.ts
+│ │ ├── flights
+│ │ │ └── search
+│ │ │ └── route.ts
+│ │ ├── bookings
+│ │ │ ├── confirmation
+│ │ │ │ └── route.ts
+│ │ │ └── route.ts
+│ │ ├── create-checkout-session
+│ │ │ └── route.ts
+│ │ ├── user
+│ │ │ └── profile
+│ │ │ └── route.ts
+│ │ ├── flight-status
+│ │ │ └── route.ts
+│ │ └── webhooks
+│ │ └── stripe
+│ │ └── route.ts
+│ ├── signup
+│ │ └── page.tsx
+│ ├── login
+│ │ └── page.tsx
+│ ├── booking
+│ │ ├── confirmation
+│ │ │ └── page.tsx
+│ │ └── page.tsx
+│ ├── profile
+│ │ └── page.tsx
+│ ├── dashboard
+│ │ └── page.tsx
+│ ├── globals.css
+│ ├── layout.tsx
+│ └── page.tsx
+├── .env
 ├── .gitignore
 ├── components.json
+├── middleware.ts
 ├── next.config.mjs
+├── next-env.d.ts
 ├── package.json
+├── package-lock.json
 ├── postcss.config.mjs
 ├── tailwind.config.ts
-├── tsconfig.json
-├── middleware.ts
-├── next-env.d.ts
-├── package-lock.json
-├── .env.local
-└── .env
+└── tsconfig.json
