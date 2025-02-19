@@ -45,6 +45,7 @@ export async function POST(request: Request) {
       class: travelClass,
       currency = "USD",
       maxPrice,
+      nonStop = false,
     } = body;
 
     if (process.env.USE_REAL_FLIGHT_API === "true") {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
         currencyCode: currency,
         maxPrice,
         max: 250,
-        nonStop: false,
+        nonStop: nonStop,
       });
 
       // Log the total number of flights
