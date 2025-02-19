@@ -12,9 +12,12 @@ interface FlightSearchParams {
 interface FlightData {
   id: string;
   airline: string;
+  airlineCode: string;
   flightNumber: string;
   origin: string;
+  originCity: string;
   destination: string;
+  destinationCity: string;
   departureTime: string;
   arrivalTime: string;
   price: number;
@@ -25,6 +28,7 @@ interface FlightData {
     departure: string;
     arrival: string;
   };
+  currency: string;
 }
 
 export async function POST(request: Request) {
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
       children,
       infants,
       class: travelClass,
-      currency,
+      currency = "USD",
       maxPrice,
     } = body;
 
@@ -59,59 +63,96 @@ export async function POST(request: Request) {
         nonStop: false,
       });
 
-      // Add console.log to see the raw response
-      console.log(
-        "Amadeus Raw Response:",
-        JSON.stringify(amadeusResponse, null, 2)
+      // Log the total number of flights
+      console.log(`Total flights found: ${amadeusResponse.data.length}`);
+
+      // Get unique airline codes from all flights
+      const airlineCodes = Array.from(
+        new Set(
+          amadeusResponse.data.map(
+            (offer: any) => offer.validatingAirlineCodes[0]
+          )
+        )
       );
 
-      // Transform Amadeus response to match our frontend format
-      const transformedFlights = amadeusResponse.data.map((offer: any) => {
-        // Log individual offer for debugging
-        console.log("Processing offer:", JSON.stringify(offer, null, 2));
+      console.log(
+        `Unique airline codes found: ${airlineCodes.length}`,
+        airlineCodes
+      );
 
-        const { hours, minutes } = parseISODuration(
-          offer.itineraries[0].duration
+      // Fetch all airline names at once
+      const airlineCache = await amadeusService.batchGetAirlineDetails(
+        airlineCodes
+      );
+
+      console.log("Airline name cache:", airlineCache);
+
+      // Transform flights with cached airline names
+      const transformedFlights = await Promise.all(
+        amadeusResponse.data.map(async (offer: any) => {
+          const airlineCode = offer.validatingAirlineCodes[0];
+          const airlineName = airlineCache[airlineCode] || airlineCode;
+
+          console.log(
+            `Processing flight with airline: ${airlineCode} => ${airlineName}`
+          );
+
+          const { hours, minutes } = parseISODuration(
+            offer.itineraries[0].duration
+          );
+          const durationInMinutes = hours * 60 + minutes;
+
+          return {
+            id: offer.id,
+            airline: airlineName,
+            airlineCode: airlineCode,
+            flightNumber: offer.itineraries[0].segments[0].number,
+            origin: offer.itineraries[0].segments[0].departure.iataCode,
+            originCity: await amadeusService.getLocationDetails(
+              offer.itineraries[0].segments[0].departure.iataCode
+            ),
+            destination: offer.itineraries[0].segments[0].arrival.iataCode,
+            destinationCity: await amadeusService.getLocationDetails(
+              offer.itineraries[0].segments[0].arrival.iataCode
+            ),
+            departureTime: new Date(
+              offer.itineraries[0].segments[0].departure.at
+            ).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }),
+            arrivalTime: new Date(
+              offer.itineraries[0].segments[0].arrival.at
+            ).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            }),
+            price: parseFloat(offer.price.total),
+            duration: durationInMinutes, // Now passing minutes as a number
+            status: "SCHEDULED", // Amadeus doesn't provide real-time status
+            aircraft: offer.itineraries[0].segments[0].aircraft.code,
+            terminal: {
+              departure:
+                offer.itineraries[0].segments[0].departure.terminal || "-",
+              arrival: offer.itineraries[0].segments[0].arrival.terminal || "-",
+            },
+            currency: offer.price.currency || currency,
+          };
+        })
+      );
+
+      // Verify all flights have airline names
+      const missingAirlines = transformedFlights.filter(
+        (flight) => flight.airline === flight.airlineCode
+      );
+      if (missingAirlines.length > 0) {
+        console.warn(
+          "Flights with missing airline names:",
+          missingAirlines.map((f) => f.airlineCode)
         );
-        const durationInMinutes = hours * 60 + minutes;
-
-        return {
-          id: offer.id,
-          airline: offer.validatingAirlineCodes[0],
-          flightNumber: offer.itineraries[0].segments[0].number,
-          origin: offer.itineraries[0].segments[0].departure.iataCode,
-          destination: offer.itineraries[0].segments[0].arrival.iataCode,
-          departureTime: new Date(
-            offer.itineraries[0].segments[0].departure.at
-          ).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          }),
-          arrivalTime: new Date(
-            offer.itineraries[0].segments[0].arrival.at
-          ).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          }),
-          price: parseFloat(offer.price.total),
-          duration: durationInMinutes, // Now passing minutes as a number
-          status: "SCHEDULED", // Amadeus doesn't provide real-time status
-          aircraft: offer.itineraries[0].segments[0].aircraft.code,
-          terminal: {
-            departure:
-              offer.itineraries[0].segments[0].departure.terminal || "-",
-            arrival: offer.itineraries[0].segments[0].arrival.terminal || "-",
-          },
-        };
-      });
-
-      // Log transformed flights
-      console.log(
-        "Transformed Flights:",
-        JSON.stringify(transformedFlights, null, 2)
-      );
+      }
 
       return NextResponse.json(transformedFlights);
     }
@@ -119,6 +160,21 @@ export async function POST(request: Request) {
     // Generate 10-30 flights for variety
     const numberOfFlights = Math.floor(Math.random() * 20) + 10;
     const flights: FlightData[] = [];
+
+    // Update the mock airlines array
+    const airlines = [
+      { code: "UA", name: "United Airlines" },
+      { code: "AA", name: "American Airlines" },
+      { code: "DL", name: "Delta Air Lines" },
+      { code: "B6", name: "JetBlue Airways" },
+      { code: "WN", name: "Southwest Airlines" },
+      { code: "F9", name: "Frontier Airlines" },
+    ];
+
+    // Pre-fetch all airline names
+    await amadeusService.batchGetAirlineDetails(
+      airlines.map((airline) => airline.code)
+    );
 
     for (let i = 0; i < numberOfFlights; i++) {
       // Generate departure time between 6 AM and 10 PM
@@ -133,12 +189,24 @@ export async function POST(request: Request) {
         departureTime.getTime() + durationMinutes * 60000
       );
 
+      // Get city names
+      const originCity = await amadeusService.getLocationDetails(origin);
+      const destinationCity = await amadeusService.getLocationDetails(
+        destination
+      );
+
+      const randomAirline =
+        airlines[Math.floor(Math.random() * airlines.length)];
+
       flights.push({
         id: `FL${Math.floor(Math.random() * 9000) + 1000}`,
-        airline: "Mock Airline",
+        airline: randomAirline.name,
+        airlineCode: randomAirline.code,
         flightNumber: `${Math.floor(Math.random() * 9000) + 1000}`,
         origin: origin,
+        originCity: originCity,
         destination: destination,
+        destinationCity: destinationCity,
         departureTime: departureTime.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
@@ -157,6 +225,7 @@ export async function POST(request: Request) {
           departure: "Mock Terminal",
           arrival: "Mock Terminal",
         },
+        currency: currency,
       });
     }
 
@@ -184,7 +253,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Keep the existing generateMockFlights function as fallback
+// Update the generateMockFlights function
 const generateMockFlights = (params: FlightSearchParams) => {
   const airlines = [
     "American Airlines",
@@ -223,6 +292,12 @@ const generateMockFlights = (params: FlightSearchParams) => {
     flights.push({
       id: `FL${Math.floor(Math.random() * 9000) + 1000}`,
       airline: airlines[Math.floor(Math.random() * airlines.length)],
+      airlineCode: airlines[Math.floor(Math.random() * airlines.length)]
+        .split(" ")
+        .map(
+          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join(" "),
       flightNumber: `${Math.floor(Math.random() * 9000) + 1000}`,
       origin: params.origin,
       destination: params.destination,
@@ -244,6 +319,7 @@ const generateMockFlights = (params: FlightSearchParams) => {
         departure: terminals[Math.floor(Math.random() * terminals.length)],
         arrival: terminals[Math.floor(Math.random() * terminals.length)],
       },
+      currency: currency,
     });
   }
 
