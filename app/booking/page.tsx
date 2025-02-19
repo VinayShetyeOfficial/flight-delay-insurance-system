@@ -30,9 +30,7 @@ import { addDays } from "date-fns";
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
-// -----------------------------------------------------------------------------
-// Updated Zod Schema with refinement to ensure origin and destination are different
-// -----------------------------------------------------------------------------
+// Updated Zod Schema with default currency enforced to "USD"
 const bookingSchema = z
   .object({
     origin: z.string().length(3, "Airport code must be 3 characters"),
@@ -43,7 +41,7 @@ const bookingSchema = z
     children: z.number().min(0).max(9),
     infants: z.number().min(0).max(9),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
-    currency: z.string().default("USD"),
+    currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
   })
   .refine((data) => data.origin !== data.destination, {
@@ -82,33 +80,29 @@ const insuranceOptions = [
   },
 ];
 
-export default function BookingPage() {
+const BookingPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [flights, setFlights] = useState([]);
+  const [flights, setFlights] = useState<any[]>([]);
   const { toast } = useToast();
   const [selectedInsurance, setSelectedInsurance] = useState<string | null>(
     null
   );
-  const [priceRange, setPriceRange] = useState([0, 1000]);
-  const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<string>("price");
-  const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
-  // New state for Flight Mode
+  // State for Flight Mode (Direct or Layover)
   const [nonStop, setNonStop] = useState<boolean>(false);
-  const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
+  // State for searchId to force re‑logging on each search
+  const [searchId, setSearchId] = useState(0);
+  // State for pagination: initial display count of 5
+  const [displayCount, setDisplayCount] = useState(5);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  // Add state for last successful search parameters
+  // State for last search parameters & error message
   const [lastSearchParams, setLastSearchParams] = useState<{
     origin: string;
     destination: string;
     class: string;
     nonStop: boolean;
   } | null>(null);
-
-  // Add state for the current error message
   const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
 
   const {
@@ -129,40 +123,31 @@ export default function BookingPage() {
     },
   });
 
-  // Watch both dates and trip type
+  // Watch dates, trip type, origin, and destination
   const departureDate = watch("departureDate");
   const returnDate = watch("returnDate");
   const currentTripType = watch("tripType");
-
-  // Also watch origin, destination, and class for empty state messages
   const originValue = watch("origin") || "";
   const destinationValue = watch("destination") || "";
-  const flightClassValue = watch("class") || "ECONOMY";
 
-  //
-  // If user is not logged in, redirect
-  //
+  // Redirect if not logged in.
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
 
-  // Handle trip type change
+  // Handle trip type change.
   const handleTripTypeChange = (type: "oneWay" | "roundTrip") => {
-    setTripType(type);
     setValue("tripType", type);
-
     if (type === "oneWay") {
-      // Always clear return date for one-way
       setValue("returnDate", undefined);
     } else if (type === "roundTrip" && departureDate) {
-      // Set return date when switching to round trip
       setValue("returnDate", addDays(departureDate, 1));
     }
   };
 
-  // Handle flight mode change
+  // Handle flight mode change.
   const handleFlightModeChange = (isNonStop: boolean) => {
     setNonStop(isNonStop);
     console.log("Flight Mode (nonStop):", isNonStop);
@@ -182,9 +167,7 @@ export default function BookingPage() {
     }
   }, [departureDate, returnDate, currentTripType, setValue]);
 
-  // ---------------------------------------------------------------------------
-  // Helper Functions for Dynamic Empty-State Messages
-  // ---------------------------------------------------------------------------
+  // Helper function for empty-state messages.
   const getFlightClassLabel = (flightClass: string) => {
     switch (flightClass) {
       case "ECONOMY":
@@ -214,39 +197,22 @@ export default function BookingPage() {
       const messages = [
         `No direct ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no direct ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
-        `There are no direct ${flightClassLabel} flight options for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn't find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
-        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are currently unavailable.`,
-        `We regret that there are no direct ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
-        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are not available right now.`,
-        `At the moment, there are no direct ${flightClassLabel} flights connecting ${originUpper} and ${destinationUpper}.`,
-        `No direct ${flightClassLabel} flight deals available from ${originUpper} to ${destinationUpper}.`,
-        `Direct ${flightClassLabel} flight options from ${originUpper} to ${destinationUpper} could not be found.`,
       ];
       return messages[Math.floor(Math.random() * messages.length)];
     } else {
       const messages = [
         `No ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
-        `There are no ${flightClassLabel} flight options available for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn't find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
-        `We regret that there are no ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
-        `Currently, there are no ${flightClassLabel} flights connecting ${originUpper} and ${destinationUpper}.`,
-        `No ${flightClassLabel} flight deals available from ${originUpper} to ${destinationUpper}.`,
-        `There appear to be no ${flightClassLabel} flights operating between ${originUpper} and ${destinationUpper}.`,
-        `We couldn't locate any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
-        `No ${flightClassLabel} flight options could be found for your journey from ${originUpper} to ${destinationUpper}.`,
       ];
       return messages[Math.floor(Math.random() * messages.length)];
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Updated searchFlights function with new fields & URL
-  // ---------------------------------------------------------------------------
+  // Function to search flights – passes all form inputs directly to the API.
   const searchFlights = async (data: BookingForm) => {
     setIsLoading(true);
     try {
+      console.clear();
       const response = await fetch("/api/flights/search", {
         method: "POST",
         headers: {
@@ -280,6 +246,8 @@ export default function BookingPage() {
       }
 
       setFlights(flights);
+      // Reset pagination to initial count of 5 when new search is performed.
+      setDisplayCount(5);
     } catch (error) {
       console.error("Flight Search Error:", error);
       toast({
@@ -292,13 +260,11 @@ export default function BookingPage() {
     }
   };
 
-  //
-  // onSubmit
-  //
+  // onSubmit handler – passes form values to the API.
   const onSubmit = async (data: BookingForm) => {
     setIsLoading(true);
-
     try {
+      console.clear();
       const formattedDepartureDate = data.departureDate
         .toISOString()
         .split("T")[0];
@@ -307,6 +273,9 @@ export default function BookingPage() {
         origin: data.origin.toUpperCase(),
         destination: data.destination.toUpperCase(),
         departureDate: formattedDepartureDate,
+        returnDate: data.returnDate
+          ? data.returnDate.toISOString().split("T")[0]
+          : undefined,
         adults: data.adults,
         children: data.children,
         infants: data.infants,
@@ -334,8 +303,12 @@ export default function BookingPage() {
       }
 
       setFlights(flightData);
+      // Increment searchId so FlightCards know a new search occurred.
+      setSearchId((prev) => prev + 1);
+      // Reset pagination to initial count of 5.
+      setDisplayCount(5);
 
-      // Store the search parameters and generate error message only if no flights found
+      // Store search parameters and display error message if no flights are returned.
       const newSearchParams = {
         origin: data.origin,
         destination: data.destination,
@@ -364,124 +337,7 @@ export default function BookingPage() {
     }
   };
 
-  //
-  // Handle booking: create Stripe session
-  //
-  const handleBooking = async (flight: any) => {
-    if (status !== "authenticated") {
-      toast({
-        title: "Error",
-        description: "Please log in to book a flight",
-        variant: "destructive",
-      });
-      router.push("/login");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const insuranceOption = insuranceOptions.find(
-        (option) => option.id === selectedInsurance
-      );
-      if (!insuranceOption) {
-        throw new Error("Please select an insurance option");
-      }
-
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          flight: {
-            id: flight.id,
-            number: flight.flightNumber,
-            origin: flight.origin,
-            destination: flight.destination,
-            departureTime: flight.departureTime,
-            arrivalTime: flight.arrivalTime,
-            price: flight.price,
-          },
-          insurance: {
-            id: insuranceOption.id,
-            name: insuranceOption.name,
-            price: insuranceOption.price,
-            description: insuranceOption.description,
-          },
-          totalAmount: flight.price + insuranceOption.price,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create checkout session");
-      }
-
-      const { sessionId } = data;
-      if (!sessionId) {
-        throw new Error("No session ID returned from server");
-      }
-
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error("Stripe failed to initialize");
-      }
-
-      const { error } = await stripe.redirectToCheckout({ sessionId });
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to process payment",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  //
-  // Filter + Sort flights
-  //
-  const filteredAndSortedFlights = flights
-    .filter(
-      (flight: any) =>
-        flight.price >= priceRange[0] &&
-        flight.price <= priceRange[1] &&
-        (selectedAirlines.length === 0 ||
-          selectedAirlines.includes(flight.airline))
-    )
-    .sort((a: any, b: any) => {
-      if (sortBy === "price") return a.price - b.price;
-      if (sortBy === "duration") return a.duration - b.duration;
-      return 0;
-    });
-
-  //
-  // Gather unique airlines
-  //
-  const airlines = Array.from(
-    new Set(flights.map((flight: any) => flight.airline))
-  );
-
-  //
-  // Loading state
-  //
-  if (status === "loading") {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center min-h-[400px]">
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  //
-  // Handle Show More
-  //
+  // Handle Show More button – increment displayCount while preserving pagination.
   const handleShowMore = async () => {
     setIsLoadingMore(true);
     try {
@@ -492,41 +348,15 @@ export default function BookingPage() {
     }
   };
 
-  // Function to handle initial flight results (if needed)
-  const handleSearchSubmit = async (data: BookingForm) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/flights/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+  // Filter flights to display only those whose source and final destination match the entered values.
+  const filteredFlights = flights;
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch flights");
-      }
-
-      const flightResults = await response.json();
-      setFlights(flightResults);
-      setDisplayCount(10);
-
-      document
-        .getElementById("flight-results")
-        ?.scrollIntoView({ behavior: "smooth" });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch flights. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  // Function to render a FlightCard
+  const renderFlightCard = (flight: any) => {
+    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
+    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
   };
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
@@ -551,7 +381,7 @@ export default function BookingPage() {
                     <Button
                       type="button"
                       className={`px-4 py-2 transition-colors ${
-                        tripType === "roundTrip"
+                        currentTripType === "roundTrip"
                           ? "bg-primary text-primary-foreground"
                           : "bg-transparent text-foreground hover:bg-transparent"
                       }`}
@@ -563,7 +393,7 @@ export default function BookingPage() {
                     <Button
                       type="button"
                       className={`px-4 py-2 transition-colors ${
-                        tripType === "oneWay"
+                        currentTripType === "oneWay"
                           ? "bg-primary text-primary-foreground"
                           : "bg-transparent text-foreground hover:bg-transparent"
                       }`}
@@ -677,11 +507,11 @@ export default function BookingPage() {
                         date={field.value}
                         setDate={(date) => field.onChange(date)}
                         disablePastDates
-                        disabled={tripType === "oneWay"}
+                        disabled={currentTripType === "oneWay"}
                         minDate={departureDate || undefined}
                         clearable={false}
                         placeholder={
-                          tripType === "oneWay"
+                          currentTripType === "oneWay"
                             ? "Not Applicable"
                             : "Pick a date"
                         }
@@ -817,81 +647,40 @@ export default function BookingPage() {
           </CardContent>
         </Card>
 
-        {/* Flight Results or Empty State Message */}
-        {flights.length > 0 ? (
-          <div className="space-y-6" id="flight-results">
+        {/* Flight Results */}
+        {flights.length > 0 && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">Available Flights</h2>
-                <p className="text-sm text-muted-foreground">
-                  Showing {Math.min(displayCount, flights.length)} of{" "}
-                  {flights.length} flights
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Filter className="h-4 w-4" /> Filters
-              </Button>
+              <h2 className="text-xl font-semibold">
+                Available Flights - Showing{" "}
+                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
+                flights
+              </h2>
             </div>
 
             <div className="space-y-4">
-              {flights.slice(0, displayCount).map((flight: any) => (
-                <FlightCard
-                  key={flight.id}
-                  airline={flight.airline}
-                  airlineCode={flight.airlineCode}
-                  flightNumber={flight.flightNumber}
-                  origin={flight.origin}
-                  destination={flight.destination}
-                  departureTime={flight.departureTime}
-                  arrivalTime={flight.arrivalTime}
-                  duration={flight.duration}
-                  price={flight.price}
-                  currency={flight.currency || watch("currency") || "USD"}
-                  status={flight.status}
-                  terminal={flight.terminal}
-                  aircraft={flight.aircraft}
-                  onSelect={() => handleBooking(flight)}
-                />
-              ))}
+              {flights.slice(0, displayCount).map(renderFlightCard)}
             </div>
 
             {displayCount < flights.length && (
-              <div className="flex justify-center mt-8">
+              <div className="text-center mt-6">
                 <Button
                   onClick={handleShowMore}
-                  variant="showMore"
-                  className="w-full max-w-md py-6 text-base"
                   disabled={isLoadingMore}
+                  className="w-full max-w-sm"
                 >
                   {isLoadingMore ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading more...
-                    </div>
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
                   ) : (
-                    `Show More Flights (${
-                      flights.length - displayCount
-                    } remaining)`
+                    "Show More Flights"
                   )}
                 </Button>
               </div>
             )}
           </div>
-        ) : (
-          // Only show empty state message when search has been performed (origin/destination entered) and not loading
-          !isLoading &&
-          originValue.length === 3 &&
-          destinationValue.length === 3 && (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">
-                {currentErrorMessage || "Please search for flights."}
-              </p>
-            </div>
-          )
         )}
 
         {/* Insurance Options */}
@@ -924,4 +713,6 @@ export default function BookingPage() {
       </div>
     </div>
   );
-}
+};
+
+export default BookingPage;
