@@ -62,8 +62,10 @@ export default function FlightCard({
   // Add console log when the card is rendered
   useEffect(() => {
     console.group(`Flight Details: ${flightNumber}`);
+    console.log("Airline IATA Code:", airlineCode);
     console.log({
       airline,
+      airlineCode,
       flightNumber,
       origin,
       destination,
@@ -78,6 +80,7 @@ export default function FlightCard({
     console.groupEnd();
   }, [
     airline,
+    airlineCode,
     flightNumber,
     origin,
     destination,
@@ -102,17 +105,36 @@ export default function FlightCard({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center">
-              <Plane className="h-6 w-6 text-zinc-900" />
+            <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden">
+              {airlineCode ? (
+                <div className="relative">
+                  <img
+                    src={`https://content.airhex.com/content/logos/airlines_${airlineCode}_200_200_s.png`}
+                    alt={`${airline} logo`}
+                    className="h-10 w-10 object-contain"
+                    onError={(e) => {
+                      // Fallback to Plane icon if image fails to load
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.style.display = "none";
+                      e.currentTarget.parentElement
+                        ?.querySelector(".fallback-icon")
+                        ?.classList.remove("hidden");
+                    }}
+                  />
+                  <Plane className="h-6 w-6 text-zinc-900 fallback-icon hidden absolute inset-0 m-auto" />
+                </div>
+              ) : (
+                <Plane className="h-6 w-6 text-zinc-900" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold">{airline}</h3>
-                {airlineCode && (
+                {/* {airlineCode && (
                   <span className="text-sm text-muted-foreground">
                     ({airlineCode})
                   </span>
-                )}
+                )} */}
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs uppercase font-medium ${getStatusStyles(
                     status
