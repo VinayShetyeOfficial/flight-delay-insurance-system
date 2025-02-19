@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Building2, Clock, Plane } from "lucide-react";
 import { useEffect } from "react";
+import { getCurrencySymbol } from "@/lib/utils";
 
 // Add status styles helper
 const getStatusStyles = (status: string) => {
@@ -20,9 +21,12 @@ const getStatusStyles = (status: string) => {
 
 interface FlightCardProps {
   airline: string;
+  airlineCode?: string;
   flightNumber: string;
   origin: string;
+  originCity: string;
   destination: string;
+  destinationCity: string;
   departureTime: string;
   arrivalTime: string;
   duration: number;
@@ -33,14 +37,18 @@ interface FlightCardProps {
     arrival: string;
   };
   aircraft?: string;
+  currency: string;
   onSelect?: () => void;
 }
 
 export default function FlightCard({
   airline,
+  airlineCode,
   flightNumber,
   origin,
+  originCity,
   destination,
+  destinationCity,
   departureTime,
   arrivalTime,
   duration,
@@ -48,6 +56,7 @@ export default function FlightCard({
   status = "ACTIVE",
   terminal,
   aircraft,
+  currency = "USD",
   onSelect,
 }: FlightCardProps) {
   // Add console log when the card is rendered
@@ -99,6 +108,11 @@ export default function FlightCard({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold">{airline}</h3>
+                {airlineCode && (
+                  <span className="text-sm text-muted-foreground">
+                    ({airlineCode})
+                  </span>
+                )}
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs uppercase font-medium ${getStatusStyles(
                     status
@@ -113,7 +127,13 @@ export default function FlightCard({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">${price}</p>
+            <p className="text-2xl font-bold">
+              {getCurrencySymbol(currency)}
+              {price.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
             <p className="text-sm text-muted-foreground">per person</p>
           </div>
         </div>
@@ -123,7 +143,9 @@ export default function FlightCard({
           {/* Departure */}
           <div>
             <p className="text-2xl font-bold">{departureTime}</p>
-            <p className="font-medium">{origin.split("(")[0].trim()}</p>
+            <p className="font-medium">
+              {originCity} ({origin})
+            </p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
               <Building2 className="h-3 w-3" />
               Terminal {terminal?.departure || "D"}
@@ -150,7 +172,9 @@ export default function FlightCard({
           {/* Arrival */}
           <div className="text-right">
             <p className="text-2xl font-bold">{arrivalTime}</p>
-            <p className="font-medium">{destination.split("(")[0].trim()}</p>
+            <p className="font-medium">
+              {destinationCity} ({destination})
+            </p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
               <Building2 className="h-3 w-3" />
               Terminal {terminal?.arrival || "B"}
