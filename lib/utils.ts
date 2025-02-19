@@ -14,3 +14,23 @@ export function parseISODuration(duration: string): {
   const minutes = matches?.[2] ? parseInt(matches[2]) : 0;
   return { hours, minutes };
 }
+
+// Add this currency symbol mapping
+export const CURRENCY_SYMBOLS: { [key: string]: string } = {
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+  AUD: "A$",
+  CAD: "C$",
+  CHF: "Fr",
+  CNY: "¥",
+  INR: "₹",
+  AED: "د.إ",
+  // Add more currencies as needed
+};
+
+// Add a helper function to get currency symbol
+export const getCurrencySymbol = (currency: string) => {
+  return CURRENCY_SYMBOLS[currency] || currency;
+};
