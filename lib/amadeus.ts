@@ -166,13 +166,8 @@ class AmadeusService {
   // Add a new method to fetch multiple airline details at once
   async batchGetAirlineDetails(airlineCodes: string[]) {
     try {
-      // Remove duplicates and filter out empty codes
       const uniqueCodes = Array.from(new Set(airlineCodes)).filter(Boolean);
-
-      console.log(
-        `Fetching details for ${uniqueCodes.length} airlines:`,
-        uniqueCodes
-      );
+      console.log("Fetching details for IATA codes:", uniqueCodes);
 
       // Filter out codes we already have in cache
       const codesToFetch = uniqueCodes.filter(
