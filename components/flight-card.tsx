@@ -105,13 +105,13 @@ export default function FlightCard({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden">
+            <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden shadow-[rgba(3,102,214,0.3)_0px_0px_0px_2px]">
               {airlineCode ? (
                 <div className="relative">
                   <img
                     src={`https://content.airhex.com/content/logos/airlines_${airlineCode}_200_200_s.png`}
                     alt={`${airline} logo`}
-                    className="h-10 w-10 object-contain"
+                    className="h-[100%] w-[100%] object-contain"
                     onError={(e) => {
                       // Fallback to Plane icon if image fails to load
                       e.currentTarget.onerror = null;
@@ -127,6 +127,7 @@ export default function FlightCard({
                 <Plane className="h-6 w-6 text-zinc-900" />
               )}
             </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold">{airline}</h3>
