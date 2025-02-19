@@ -28,6 +28,7 @@ import {
 import { addDays } from "date-fns";
 
 import FlightCard from "@/components/flight-card";
+import { CurrencySelector } from "@/components/ui/currency-selector";
 
 // -----------------------------------------------------------------------------
 // Updated Zod Schema to match AI suggestion
@@ -646,11 +647,22 @@ export default function BookingPage() {
                 {/* Currency */}
                 <div className="space-y-2">
                   <Label>Currency</Label>
-                  <Input
-                    type="text"
-                    {...register("currency")}
+                  <Controller
+                    name="currency"
+                    control={control}
                     defaultValue="USD"
+                    render={({ field }) => (
+                      <CurrencySelector
+                        value={field.value}
+                        onChange={(value) => field.onChange(value)}
+                      />
+                    )}
                   />
+                  {errors.currency && (
+                    <p className="text-destructive text-sm">
+                      {errors.currency.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -710,6 +722,7 @@ export default function BookingPage() {
                   arrivalTime={flight.arrivalTime}
                   duration={flight.duration}
                   price={flight.price}
+                  currency={flight.currency || watch("currency") || "USD"}
                   status={flight.status}
                   terminal={flight.terminal}
                   aircraft={flight.aircraft}
