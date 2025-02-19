@@ -715,6 +715,7 @@ export default function BookingPage() {
                 <FlightCard
                   key={flight.id}
                   airline={flight.airline}
+                  airlineCode={flight.airlineCode}
                   flightNumber={flight.flightNumber}
                   origin={flight.origin}
                   destination={flight.destination}
