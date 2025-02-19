@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       const transformedFlights = await Promise.all(
         amadeusResponse.data.map(async (offer: any) => {
           const airlineCode = offer.validatingAirlineCodes[0];
+          console.log("Processing airline IATA code:", airlineCode);
           const airlineName = airlineCache[airlineCode] || airlineCode;
 
           console.log(
