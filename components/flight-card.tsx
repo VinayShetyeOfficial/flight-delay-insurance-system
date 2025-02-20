@@ -175,6 +175,31 @@ const getFlightClassLabel = (cabinClass: string) => {
   }
 };
 
+// Add this helper function at the top of the component
+const formatDurationHM = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  // If duration is 24 hours or more, show in days
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+
+    if (remainingHours === 0) {
+      return `${days} ${days === 1 ? "day" : "days"}`;
+    }
+
+    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
+  }
+
+  // For durations less than 24 hours
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
+};
+
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
 
@@ -209,11 +234,17 @@ export default function FlightCard(props: FlightCardProps) {
 
   return (
     <Card className="overflow-hidden">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      {/* Header with custom radial gradient background */}
+      <div
+        className="px-6 py-4"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle 248px at center, #16d9e3 0%, #30c7ec 47%, #46aef7 100%)",
+        }}
+      >
+        <div className="flex items-center justify-between text-white">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden shadow-[rgba(3,102,214,0.3)_0px_0px_0px_2px]">
+            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
               {props.airlineCode ? (
                 <div className="relative">
                   <img
@@ -228,36 +259,43 @@ export default function FlightCard(props: FlightCardProps) {
                         ?.classList.remove("hidden");
                     }}
                   />
-                  <Plane className="h-6 w-6 text-zinc-900 fallback-icon hidden absolute inset-0 m-auto" />
+                  <Plane className="h-6 w-6 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
                 </div>
               ) : (
-                <Plane className="h-6 w-6 text-zinc-900" />
+                <Plane className="h-6 w-6 text-blue-500" />
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{props.airline}</h3>
-                <span className="px-2 py-0.5 rounded-full text-xs uppercase font-medium">
-                  {/* {props.status || "SCHEDULED"} */}
-                </span>
+                <h3 className="text-lg font-semibold text-white">
+                  {props.airline}
+                </h3>
+                {/* {props.cabinClass && (
+                  <span className="px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium">
+                    {getFlightClassLabel(props.cabinClass)}
+                  </span>
+                )} */}
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-white/80">
                 Flight {props.flightNumber}
               </p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">
+            <p className="text-2xl font-bold text-white">
               {getCurrencySymbol(props.currency)}
               {props.price.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </p>
-            <p className="text-sm text-muted-foreground">Ticket Price</p>
+            <p className="text-sm text-white/80">Ticket Price</p>
           </div>
         </div>
+      </div>
 
+      {/* Card Content - Now with its own padding */}
+      <div className="p-6 space-y-6">
         {/* Flight Timeline */}
         <div className="grid grid-cols-[1fr,2fr,1fr] items-center gap-4">
           {/* Departure */}
@@ -286,7 +324,7 @@ export default function FlightCard(props: FlightCardProps) {
               {formatDuration(props.duration)}
               {props.segments && props.segments.length > 1
                 ? ` • ${props.segments.length - 1} ${
-                    props.segments.length - 1 === 1 ? "Layover" : "Layovers"
+                    props.segments.length - 1 === 1 ? "Stop" : "Stops"
                   }`
                 : " • Direct"}
             </div>
@@ -307,7 +345,7 @@ export default function FlightCard(props: FlightCardProps) {
         <div className="flex flex-col gap-2 pt-4 border-t">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
             <div className="flex flex-col text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 ">
                 <MapPin className="h-3.5 w-3.5" />
                 <p>{getRouteString(props)}</p>
               </div>
@@ -324,110 +362,189 @@ export default function FlightCard(props: FlightCardProps) {
           {/* Flight Details Accordion */}
           <Accordion type="single" collapsible className="pt-2">
             <AccordionItem value="details" className="border-none">
-              <AccordionTrigger className="flex items-center gap-2 text-sm hover:no-underline py-2 [&[data-state=open]>svg]:rotate-180 justify-start">
+              <AccordionTrigger className="flex items-center gap-2 text-sm py-2 [&[data-state=open]>svg]:rotate-180 justify-start group">
                 <Info className="h-4 w-4" />
-                Flight Details
+                <span className="group-hover:underline">Flight Details</span>
               </AccordionTrigger>
               <AccordionContent className="pt-2">
-                <div className="grid grid-cols-2 gap-x-8 text-sm">
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-1.5">Flight Information</h4>
-                      <div className="space-y-1 text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Plane className="h-4 w-4 shrink-0" />
-                          {props.isLayover
-                            ? `${props.segments?.length - 1} stop(s)`
-                            : "Non-stop flight"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 shrink-0" />
-                          Total duration: {props.duration} minutes
-                        </div>
+                {/* Top Row: Journey Overview and Amenities */}
+                <div className="grid grid-cols-2 gap-x-8 text-sm mb-6">
+                  {/* Journey Overview */}
+                  <div>
+                    <h4 className="font-medium mb-1.5">Journey Overview</h4>
+                    <div className="space-y-1 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Plane className="h-4 w-4 shrink-0" />
+                        {props.isLayover
+                          ? `${props.segments?.length - 1} stop(s)`
+                          : "Non-stop flight"}
                       </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium mb-1.5">Baggage Allowance</h4>
-                      <div className="space-y-1 text-muted-foreground">
-                        {props.baggage?.includedCheckedBags > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Luggage className="h-4 w-4 shrink-0" />
-                            {props.baggage.checkedBagWeight
-                              ? `${props.baggage.includedCheckedBags}x Checked Bag (${props.baggage.checkedBagWeight}${props.baggage.checkedBagWeightUnit})`
-                              : `${props.baggage.includedCheckedBags}x Checked Bag`}
-                          </div>
-                        )}
-                        {props.baggage?.includedCabinBags > 0 && (
-                          <div className="flex items-center gap-2">
-                            <Luggage className="h-4 w-4 shrink-0" />
-                            {props.baggage.includedCabinBags}x Cabin Bag
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        Total duration: {formatDurationHM(props.duration)}
                       </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 shrink-0" />
+                        {props.origin} ({props.originCity}) →{" "}
+                        {props.destination} ({props.destinationCity})
+                      </div>
+                      {/* Only show baggage info if props.baggage exists */}
+                      {props.baggage && (
+                        <div className="flex items-center gap-2">
+                          <Luggage className="h-4 w-4 shrink-0" />
+                          {`${props.baggage.includedCheckedBags}x Checked Bag`}
+                          {props.baggage.includedCabinBags > 0 &&
+                            ` • ${props.baggage.includedCabinBags}x Cabin Bag`}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium mb-1.5">Aircraft Details</h4>
-                      <div className="space-y-1 text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Plane className="h-4 w-4 shrink-0" />
-                          {props.aircraft}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            width={16}
-                            height={16}
-                            className="shrink-0"
-                            stroke="currentColor"
-                            fill="none"
-                          >
-                            <path
-                              d="M8.48169 18H17.9722C19.0921 18 20 17.1077 20 16.0071C20 14.5 17.9722 14.0141 17.9722 14.0141C17.9722 14.0141 14.2844 12.5964 10 14C10 14 9.86099 8.87274 7.70985 3.17067C7.28543 2.04566 5.90119 1.66155 4.88539 2.3271C4.21507 2.7663 3.8807 3.55966 4.0387 4.33605L6.49327 16.3979C6.68283 17.3295 7.51507 18 8.48169 18Z"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M12.5 10.5H18"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                            <path
-                              d="M16 18L13 22M13 22H8M13 22H18"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          {getFlightClassLabel(props.cabinClass || "ECONOMY")}
-                        </div>
+                  {/* Onboard Amenities */}
+                  <div>
+                    <h4 className="font-medium mb-1.5">Onboard Amenities</h4>
+                    <div className="space-y-1 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Wifi className="h-4 w-4 shrink-0" />
+                        In-flight Wi-Fi
                       </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-medium mb-1.5">Onboard Amenities</h4>
-                      <div className="space-y-1 text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Wifi className="h-4 w-4 shrink-0" />
-                          In-flight Wi-Fi
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Power className="h-4 w-4 shrink-0" />
-                          Power outlets
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Coffee className="h-4 w-4 shrink-0" />
-                          Complimentary meals
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Power className="h-4 w-4 shrink-0" />
+                        Power outlets
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 shrink-0" />
+                        Complimentary meals
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Flight Details Section */}
+                <div className="space-y-4">
+                  {props.segments?.map((segment, index) => (
+                    <div
+                      key={index}
+                      className="border-[1px] border-gray-300 rounded-lg overflow-hidden bg-white shadow-[inset_0_0_2px_#00000015]"
+                      style={{ borderStyle: "dashed" }}
+                    >
+                      {/* Segment Header - With new linear gradient */}
+                      <div
+                        className="px-4 py-3"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                        }}
+                      >
+                        <div className="flex items-center justify-between text-white">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
+                              <div className="relative">
+                                <img
+                                  src={`https://content.airhex.com/content/logos/airlines_${segment.airlineCode}_200_200_s.png`}
+                                  alt={`${segment.airline} logo`}
+                                  className="h-[100%] w-[100%] object-contain"
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.style.display = "none";
+                                    e.currentTarget.parentElement
+                                      ?.querySelector(".fallback-icon")
+                                      ?.classList.remove("hidden");
+                                  }}
+                                />
+                                <Plane className="h-4 w-4 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-medium text-white">
+                                {segment.airline} {segment.flightNumber}
+                              </span>
+                              {props.cabinClass && (
+                                <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium whitespace-nowrap">
+                                  {getFlightClassLabel(props.cabinClass)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-white/80">
+                            {formatDurationHM(segment.duration)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Segment Content */}
+                      <div className="p-4">
+                        {/* Origin and Destination with Flight Path */}
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <div>
+                            <div>
+                              {segment.origin} ({segment.originCity})
+                            </div>
+                            <div className="text-xs">
+                              Terminal {segment.terminal.departure}
+                            </div>
+                            <div className="text-xs">
+                              {segment.departureTime}
+                            </div>
+                          </div>
+
+                          {/* Flight Path Visualization - Dark path with light circle */}
+                          <div className="flex-1 mx-4">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-gray-400" />
+                              <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-400 to-gray-300" />
+                              <div className="rounded-full bg-gray-100 p-1">
+                                <Plane className="h-3.5 w-3.5 text-zinc-900 rotate-45" />
+                              </div>
+                              <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-300 to-gray-400" />
+                              <div className="h-2 w-2 rounded-full bg-gray-400" />
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div>
+                              {segment.destination} ({segment.destinationCity})
+                            </div>
+                            <div className="text-xs">
+                              Terminal {segment.terminal.arrival}
+                            </div>
+                            <div className="text-xs">{segment.arrivalTime}</div>
+                          </div>
+                        </div>
+
+                        {/* Aircraft and Baggage - Now with conditional rendering */}
+                        <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between">
+                          <div className="flex items-center gap-2">
+                            <Plane className="h-3 w-3 shrink-0" />
+                            {segment.aircraft}
+                          </div>
+                          {/* Only show baggage info if props.baggage exists */}
+                          {props.baggage && (
+                            <div className="flex items-center gap-2">
+                              <Luggage className="h-3 w-3 shrink-0" />
+                              {`${props.baggage.includedCheckedBags}x Checked Bag`}
+                              {props.baggage.includedCabinBags > 0 &&
+                                ` • ${props.baggage.includedCabinBags}x Cabin Bag`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Layover Information */}
+                      {index < props.segments.length - 1 && (
+                        <div
+                          className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4"
+                          style={{ borderTopStyle: "dashed" }}
+                        >
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          Layover:{" "}
+                          {formatDurationHM(
+                            props.layoverTime / (props.segments.length - 1)
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </AccordionContent>
             </AccordionItem>
