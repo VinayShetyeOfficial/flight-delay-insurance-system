@@ -233,7 +233,12 @@ export default function FlightCard(props: FlightCardProps) {
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {formatDuration(props.duration)} • Direct
+              {formatDuration(props.duration)}
+              {props.segments
+                ? ` • ${props.segments.length - 1} ${
+                    props.segments.length - 1 === 1 ? "Layover" : "Layovers"
+                  }`
+                : " • Direct"}
             </div>
           </div>
 
