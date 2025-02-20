@@ -197,12 +197,18 @@ const BookingPage = () => {
       const messages = [
         `No direct ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no direct ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
+        `There are no direct ${flightClassLabel} flight options for your route from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn't find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are currently unavailable.`,
       ];
       return messages[Math.floor(Math.random() * messages.length)];
     } else {
       const messages = [
         `No ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
+        `There are no ${flightClassLabel} flight options available for your route from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn't find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `We regret that there are no ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
       ];
       return messages[Math.floor(Math.random() * messages.length)];
     }
@@ -446,6 +452,9 @@ const BookingPage = () => {
                       {...register("origin")}
                       placeholder="Enter origin city"
                       className="pl-10"
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
+                      }}
                     />
                   </div>
                   {errors.origin && (
@@ -464,6 +473,9 @@ const BookingPage = () => {
                       {...register("destination")}
                       placeholder="Enter destination city"
                       className="pl-10"
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
+                      }}
                     />
                   </div>
                   {errors.destination && (
@@ -648,7 +660,7 @@ const BookingPage = () => {
         </Card>
 
         {/* Flight Results */}
-        {flights.length > 0 && (
+        {flights.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
@@ -681,6 +693,16 @@ const BookingPage = () => {
               </div>
             )}
           </div>
+        ) : (
+          !isLoading &&
+          watch("origin")?.length === 3 &&
+          watch("destination")?.length === 3 && (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">
+                {currentErrorMessage || "Please search for flights."}
+              </p>
+            </div>
+          )
         )}
 
         {/* Insurance Options */}
