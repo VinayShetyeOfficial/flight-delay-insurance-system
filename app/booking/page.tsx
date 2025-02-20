@@ -100,6 +100,17 @@ export default function BookingPage() {
   const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  // Add state for last successful search parameters
+  const [lastSearchParams, setLastSearchParams] = useState<{
+    origin: string;
+    destination: string;
+    class: string;
+    nonStop: boolean;
+  } | null>(null);
+
+  // Add state for the current error message
+  const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
+
   const {
     register,
     handleSubmit,
@@ -189,17 +200,22 @@ export default function BookingPage() {
     }
   };
 
-  const getEmptySearchMessage = () => {
-    const flightClassLabel = getFlightClassLabel(flightClassValue);
-    const originUpper = originValue.toUpperCase();
-    const destinationUpper = destinationValue.toUpperCase();
+  const generateEmptySearchMessage = (params: {
+    origin: string;
+    destination: string;
+    class: string;
+    nonStop: boolean;
+  }) => {
+    const flightClassLabel = getFlightClassLabel(params.class);
+    const originUpper = params.origin.toUpperCase();
+    const destinationUpper = params.destination.toUpperCase();
 
-    if (nonStop) {
+    if (params.nonStop) {
       const messages = [
         `No direct ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no direct ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
         `There are no direct ${flightClassLabel} flight options for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn’t find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn't find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
         `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are currently unavailable.`,
         `We regret that there are no direct ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
         `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are not available right now.`,
@@ -213,12 +229,12 @@ export default function BookingPage() {
         `No ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
         `Sorry, no ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
         `There are no ${flightClassLabel} flight options available for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn’t find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn't find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
         `We regret that there are no ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
         `Currently, there are no ${flightClassLabel} flights connecting ${originUpper} and ${destinationUpper}.`,
         `No ${flightClassLabel} flight deals available from ${originUpper} to ${destinationUpper}.`,
         `There appear to be no ${flightClassLabel} flights operating between ${originUpper} and ${destinationUpper}.`,
-        `We couldn’t locate any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `We couldn't locate any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
         `No ${flightClassLabel} flight options could be found for your journey from ${originUpper} to ${destinationUpper}.`,
       ];
       return messages[Math.floor(Math.random() * messages.length)];
@@ -296,7 +312,7 @@ export default function BookingPage() {
         infants: data.infants,
         class: data.class,
         currency: data.currency,
-        nonStop: nonStop, // Include the nonStop flag here
+        nonStop: nonStop,
       };
 
       const response = await fetch("/api/flights/search", {
@@ -318,6 +334,23 @@ export default function BookingPage() {
       }
 
       setFlights(flightData);
+
+      // Store the search parameters and generate error message only if no flights found
+      const newSearchParams = {
+        origin: data.origin,
+        destination: data.destination,
+        class: data.class,
+        nonStop: nonStop,
+      };
+
+      setLastSearchParams(newSearchParams);
+
+      if (flightData.length === 0) {
+        const newErrorMessage = generateEmptySearchMessage(newSearchParams);
+        setCurrentErrorMessage(newErrorMessage);
+      } else {
+        setCurrentErrorMessage("");
+      }
     } catch (error) {
       console.error("Search error:", error);
       toast({
@@ -854,7 +887,9 @@ export default function BookingPage() {
           originValue.length === 3 &&
           destinationValue.length === 3 && (
             <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">{getEmptySearchMessage()}</p>
+              <p className="text-muted-foreground">
+                {currentErrorMessage || "Please search for flights."}
+              </p>
             </div>
           )
         )}
