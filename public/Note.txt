@@ -5,3 +5,13 @@ lib
 └── airlineLogos.ts
 
 
+https://content.airhex.com/content/logos/airlines_${props.airlineCode}_200_200_s.png
+https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/${props.airlineCode}.svg
+
+
+AirlineCode: [UA, AA, DL, B6, WN, AS, NK, F9, VX, HA, MQ, YX, NK, WN, B6, DL, UA, AA]
+
+
+
+
+
