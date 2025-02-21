@@ -30,24 +30,21 @@ import { addDays } from "date-fns";
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
-// Updated Zod Schema with default currency enforced to "USD"
-const bookingSchema = z
-  .object({
-    origin: z.string().length(3, "Airport code must be 3 characters"),
-    destination: z.string().length(3, "Airport code must be 3 characters"),
-    departureDate: z.date(),
-    returnDate: z.date().optional(),
-    adults: z.number().min(1, "At least 1 adult is required").max(9),
-    children: z.number().min(0).max(9),
-    infants: z.number().min(0).max(9),
-    class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
-    currency: z.string().nonempty("Currency is required").default("USD"),
-    tripType: z.enum(["oneWay", "roundTrip"]),
-  })
-  .refine((data) => data.origin !== data.destination, {
-    message: "Origin and Destination cannot be the same",
-    path: ["destination"],
-  });
+// -----------------------------------------------------------------------------
+// Updated Zod Schema to match AI suggestion
+// -----------------------------------------------------------------------------
+const bookingSchema = z.object({
+  origin: z.string().length(3, "Airport code must be 3 characters"),
+  destination: z.string().length(3, "Airport code must be 3 characters"),
+  departureDate: z.date(),
+  returnDate: z.date().optional(),
+  adults: z.number().min(1, "At least 1 adult is required").max(9),
+  children: z.number().min(0).max(9),
+  infants: z.number().min(0).max(9),
+  class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
+  currency: z.string().default("USD"),
+  tripType: z.enum(["oneWay", "roundTrip"]),
+});
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
@@ -80,30 +77,21 @@ const insuranceOptions = [
   },
 ];
 
-const BookingPage = () => {
+export default function BookingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [flights, setFlights] = useState<any[]>([]);
+  const [flights, setFlights] = useState([]);
   const { toast } = useToast();
   const [selectedInsurance, setSelectedInsurance] = useState<string | null>(
     null
   );
-  // State for Flight Mode (Direct or Layover)
-  const [nonStop, setNonStop] = useState<boolean>(false);
-  // State for searchId to force re‑logging on each search
-  const [searchId, setSearchId] = useState(0);
-  // State for pagination: initial display count of 5
-  const [displayCount, setDisplayCount] = useState(5);
+  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<string>("price");
+  const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
+  const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  // State for last search parameters & error message
-  const [lastSearchParams, setLastSearchParams] = useState<{
-    origin: string;
-    destination: string;
-    class: string;
-    nonStop: boolean;
-  } | null>(null);
-  const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
 
   const {
     register,
@@ -123,102 +111,57 @@ const BookingPage = () => {
     },
   });
 
-  // Watch dates, trip type, origin, and destination
+  // Watch both dates and trip type
   const departureDate = watch("departureDate");
   const returnDate = watch("returnDate");
   const currentTripType = watch("tripType");
-  const originValue = watch("origin") || "";
-  const destinationValue = watch("destination") || "";
 
-  // Redirect if not logged in.
+  //
+  // If user is not logged in, redirect
+  //
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
 
-  // Handle trip type change.
+  // Handle trip type change
   const handleTripTypeChange = (type: "oneWay" | "roundTrip") => {
+    setTripType(type);
     setValue("tripType", type);
+
     if (type === "oneWay") {
+      // Always clear return date for one-way
       setValue("returnDate", undefined);
     } else if (type === "roundTrip" && departureDate) {
+      // Set return date when switching to round trip
       setValue("returnDate", addDays(departureDate, 1));
     }
-  };
-
-  // Handle flight mode change.
-  const handleFlightModeChange = (isNonStop: boolean) => {
-    setNonStop(isNonStop);
-    console.log("Flight Mode (nonStop):", isNonStop);
   };
 
   // Update return date when departure date changes (for round trip only)
   useEffect(() => {
     if (currentTripType === "roundTrip" && departureDate) {
+      // If return date is before departure date, update it
       if (returnDate && returnDate < departureDate) {
         setValue("returnDate", addDays(departureDate, 1));
       }
+      // If no return date is set, set it to next day
       if (!returnDate) {
         setValue("returnDate", addDays(departureDate, 1));
       }
     } else if (currentTripType === "oneWay") {
+      // Always ensure return date is undefined for one-way trips
       setValue("returnDate", undefined);
     }
   }, [departureDate, returnDate, currentTripType, setValue]);
 
-  // Helper function for empty-state messages.
-  const getFlightClassLabel = (flightClass: string) => {
-    switch (flightClass) {
-      case "ECONOMY":
-        return "Economy Class";
-      case "PREMIUM_ECONOMY":
-        return "Premium Economy Class";
-      case "BUSINESS":
-        return "Business Class";
-      case "FIRST":
-        return "First Class";
-      default:
-        return flightClass;
-    }
-  };
-
-  const generateEmptySearchMessage = (params: {
-    origin: string;
-    destination: string;
-    class: string;
-    nonStop: boolean;
-  }) => {
-    const flightClassLabel = getFlightClassLabel(params.class);
-    const originUpper = params.origin.toUpperCase();
-    const destinationUpper = params.destination.toUpperCase();
-
-    if (params.nonStop) {
-      const messages = [
-        `No direct ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
-        `Sorry, no direct ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
-        `There are no direct ${flightClassLabel} flight options for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn't find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
-        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are currently unavailable.`,
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
-    } else {
-      const messages = [
-        `No ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
-        `Sorry, no ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
-        `There are no ${flightClassLabel} flight options available for your route from ${originUpper} to ${destinationUpper}.`,
-        `Unfortunately, we couldn't find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
-        `We regret that there are no ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
-      ];
-      return messages[Math.floor(Math.random() * messages.length)];
-    }
-  };
-
-  // Function to search flights – passes all form inputs directly to the API.
+  // ---------------------------------------------------------------------------
+  // AI-Suggested: Updated searchFlights function with new fields & URL
+  // ---------------------------------------------------------------------------
   const searchFlights = async (data: BookingForm) => {
     setIsLoading(true);
     try {
-      console.clear();
       const response = await fetch("/api/flights/search", {
         method: "POST",
         headers: {
@@ -236,12 +179,12 @@ const BookingPage = () => {
           infants: data.infants || 0,
           class: data.class,
           currency: data.currency,
-          nonStop: nonStop,
         }),
       });
 
       const flights = await response.json();
 
+      // Add console logs here
       console.group("Flight Search Results");
       console.log("Search Parameters:", data);
       console.log("Raw API Response:", flights);
@@ -252,8 +195,6 @@ const BookingPage = () => {
       }
 
       setFlights(flights);
-      // Reset pagination to initial count of 5 when new search is performed.
-      setDisplayCount(5);
     } catch (error) {
       console.error("Flight Search Error:", error);
       toast({
@@ -266,11 +207,14 @@ const BookingPage = () => {
     }
   };
 
-  // onSubmit handler – passes form values to the API.
+  //
+  // onSubmit
+  //
   const onSubmit = async (data: BookingForm) => {
     setIsLoading(true);
+
     try {
-      console.clear();
+      // Format the date to YYYY-MM-DD
       const formattedDepartureDate = data.departureDate
         .toISOString()
         .split("T")[0];
@@ -279,15 +223,11 @@ const BookingPage = () => {
         origin: data.origin.toUpperCase(),
         destination: data.destination.toUpperCase(),
         departureDate: formattedDepartureDate,
-        returnDate: data.returnDate
-          ? data.returnDate.toISOString().split("T")[0]
-          : undefined,
         adults: data.adults,
         children: data.children,
         infants: data.infants,
         class: data.class,
         currency: data.currency,
-        nonStop: nonStop,
       };
 
       const response = await fetch("/api/flights/search", {
@@ -309,27 +249,6 @@ const BookingPage = () => {
       }
 
       setFlights(flightData);
-      // Increment searchId so FlightCards know a new search occurred.
-      setSearchId((prev) => prev + 1);
-      // Reset pagination to initial count of 5.
-      setDisplayCount(5);
-
-      // Store search parameters and display error message if no flights are returned.
-      const newSearchParams = {
-        origin: data.origin,
-        destination: data.destination,
-        class: data.class,
-        nonStop: nonStop,
-      };
-
-      setLastSearchParams(newSearchParams);
-
-      if (flightData.length === 0) {
-        const newErrorMessage = generateEmptySearchMessage(newSearchParams);
-        setCurrentErrorMessage(newErrorMessage);
-      } else {
-        setCurrentErrorMessage("");
-      }
     } catch (error) {
       console.error("Search error:", error);
       toast({
@@ -343,10 +262,128 @@ const BookingPage = () => {
     }
   };
 
-  // Handle Show More button – increment displayCount while preserving pagination.
+  //
+  // Handle booking: create Stripe session
+  //
+  const handleBooking = async (flight: any) => {
+    if (status !== "authenticated") {
+      toast({
+        title: "Error",
+        description: "Please log in to book a flight",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const insuranceOption = insuranceOptions.find(
+        (option) => option.id === selectedInsurance
+      );
+      if (!insuranceOption) {
+        throw new Error("Please select an insurance option");
+      }
+
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          flight: {
+            id: flight.id,
+            number: flight.flightNumber,
+            origin: flight.origin,
+            destination: flight.destination,
+            departureTime: flight.departureTime,
+            arrivalTime: flight.arrivalTime,
+            price: flight.price,
+          },
+          insurance: {
+            id: insuranceOption.id,
+            name: insuranceOption.name,
+            price: insuranceOption.price,
+            description: insuranceOption.description,
+          },
+          totalAmount: flight.price + insuranceOption.price,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      const { sessionId } = data;
+      if (!sessionId) {
+        throw new Error("No session ID returned from server");
+      }
+
+      const stripe = await stripePromise;
+      if (!stripe) {
+        throw new Error("Stripe failed to initialize");
+      }
+
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to process payment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  //
+  // Filter + Sort flights
+  //
+  const filteredAndSortedFlights = flights
+    .filter(
+      (flight: any) =>
+        flight.price >= priceRange[0] &&
+        flight.price <= priceRange[1] &&
+        (selectedAirlines.length === 0 ||
+          selectedAirlines.includes(flight.airline))
+    )
+    .sort((a: any, b: any) => {
+      if (sortBy === "price") return a.price - b.price;
+      if (sortBy === "duration") return a.duration - b.duration;
+      return 0;
+    });
+
+  //
+  // Gather unique airlines
+  //
+  const airlines = Array.from(
+    new Set(flights.map((flight: any) => flight.airline))
+  );
+
+  //
+  // Loading state
+  //
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  //
+  // Handle Show More
+  //
   const handleShowMore = async () => {
     setIsLoadingMore(true);
     try {
+      // Add a small delay to show loading state (optional)
       await new Promise((resolve) => setTimeout(resolve, 500));
       setDisplayCount((prevCount) => Math.min(prevCount + 8, flights.length));
     } finally {
@@ -354,15 +391,42 @@ const BookingPage = () => {
     }
   };
 
-  // Filter flights to display only those whose source and final destination match the entered values.
-  const filteredFlights = flights;
+  // Add a function to handle initial flight results
+  const handleSearchSubmit = async (data: BookingForm) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/flights/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-  // Function to render a FlightCard
-  const renderFlightCard = (flight: any) => {
-    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
-    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
+      if (!response.ok) {
+        throw new Error("Failed to fetch flights");
+      }
+
+      const flightResults = await response.json();
+      setFlights(flightResults);
+      setDisplayCount(10); // Reset display count to 10 when new search is performed
+
+      // Scroll to results
+      document
+        .getElementById("flight-results")
+        ?.scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch flights. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  //
+  // Render
+  //
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
@@ -378,66 +442,34 @@ const BookingPage = () => {
         <Card className="mb-8">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Trip Type & Flight Mode Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Trip Type */}
-                <div className="space-y-2">
-                  <Label>Trip Type</Label>
-                  <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
-                    <Button
-                      type="button"
-                      className={`px-4 py-2 transition-colors ${
-                        currentTripType === "roundTrip"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                      onClick={() => handleTripTypeChange("roundTrip")}
-                    >
-                      <Plane className="mr-2 h-4 w-4 rotate-45" />
-                      Round Trip
-                    </Button>
-                    <Button
-                      type="button"
-                      className={`px-4 py-2 transition-colors ${
-                        currentTripType === "oneWay"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                      onClick={() => handleTripTypeChange("oneWay")}
-                    >
-                      <Plane className="mr-2 h-4 w-4" />
-                      One Way
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Flight Mode */}
-                <div className="space-y-2">
-                  <Label>Flight Mode</Label>
-                  <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
-                    <Button
-                      type="button"
-                      className={`px-4 py-2 transition-colors ${
-                        !nonStop
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                      onClick={() => handleFlightModeChange(false)}
-                    >
-                      Layover
-                    </Button>
-                    <Button
-                      type="button"
-                      className={`px-4 py-2 transition-colors ${
-                        nonStop
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-transparent text-foreground hover:bg-transparent"
-                      }`}
-                      onClick={() => handleFlightModeChange(true)}
-                    >
-                      Direct
-                    </Button>
-                  </div>
+              {/* Trip Type Selection */}
+              <div className="space-y-2">
+                <Label>Trip Type</Label>
+                <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
+                  <Button
+                    type="button"
+                    className={`px-4 py-2 transition-colors ${
+                      tripType === "roundTrip"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-transparent"
+                    }`}
+                    onClick={() => handleTripTypeChange("roundTrip")}
+                  >
+                    <Plane className="mr-2 h-4 w-4 rotate-45" />
+                    Round Trip
+                  </Button>
+                  <Button
+                    type="button"
+                    className={`px-4 py-2 transition-colors ${
+                      tripType === "oneWay"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-transparent"
+                    }`}
+                    onClick={() => handleTripTypeChange("oneWay")}
+                  >
+                    <Plane className="mr-2 h-4 w-4" />
+                    One Way
+                  </Button>
                 </div>
               </div>
 
@@ -452,9 +484,6 @@ const BookingPage = () => {
                       {...register("origin")}
                       placeholder="Enter origin city"
                       className="pl-10"
-                      onChange={(e) => {
-                        e.target.value = e.target.value.toUpperCase();
-                      }}
                     />
                   </div>
                   {errors.origin && (
@@ -473,9 +502,6 @@ const BookingPage = () => {
                       {...register("destination")}
                       placeholder="Enter destination city"
                       className="pl-10"
-                      onChange={(e) => {
-                        e.target.value = e.target.value.toUpperCase();
-                      }}
                     />
                   </div>
                   {errors.destination && (
@@ -487,7 +513,7 @@ const BookingPage = () => {
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Departure Date</Label>
                   <Controller
@@ -519,11 +545,11 @@ const BookingPage = () => {
                         date={field.value}
                         setDate={(date) => field.onChange(date)}
                         disablePastDates
-                        disabled={currentTripType === "oneWay"}
+                        disabled={tripType === "oneWay"}
                         minDate={departureDate || undefined}
                         clearable={false}
                         placeholder={
-                          currentTripType === "oneWay"
+                          tripType === "oneWay"
                             ? "Not Applicable"
                             : "Pick a date"
                         }
@@ -535,6 +561,7 @@ const BookingPage = () => {
 
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Adults */}
                 <div className="space-y-2">
                   <Label>Adults</Label>
                   <div className="relative">
@@ -554,6 +581,7 @@ const BookingPage = () => {
                   )}
                 </div>
 
+                {/* Children */}
                 <div className="space-y-2">
                   <Label>Children (2-12)</Label>
                   <div className="relative">
@@ -574,6 +602,7 @@ const BookingPage = () => {
                   )}
                 </div>
 
+                {/* Infants */}
                 <div className="space-y-2">
                   <Label>Infants (0-2)</Label>
                   <div className="relative">
@@ -597,10 +626,11 @@ const BookingPage = () => {
 
               {/* Class & Currency */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Class */}
                 <div className="space-y-2">
                   <Label>Class</Label>
                   <div className="relative">
-                    <Select {...register("class")} defaultValue="ECONOMY">
+                    <Select {...register("class")} defaultValue="Economy">
                       <option value="ECONOMY">Economy</option>
                       <option value="PREMIUM_ECONOMY">Premium Economy</option>
                       <option value="BUSINESS">Business</option>
@@ -614,6 +644,7 @@ const BookingPage = () => {
                   )}
                 </div>
 
+                {/* Currency */}
                 <div className="space-y-2">
                   <Label>Currency</Label>
                   <Controller
@@ -660,81 +691,99 @@ const BookingPage = () => {
         </Card>
 
         {/* Flight Results */}
-        {flights.length > 0 ? (
-          <div className="space-y-4">
+        {flights.length > 0 && (
+          <div className="space-y-6" id="flight-results">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
-                Available Flights - Showing{" "}
-                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
-                flights
-              </h2>
+              <div>
+                <h2 className="text-2xl font-bold">Available Flights</h2>
+                <p className="text-sm text-muted-foreground">
+                  Showing {Math.min(displayCount, flights.length)} of{" "}
+                  {flights.length} flights
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Filter className="h-4 w-4" /> Filters
+              </Button>
             </div>
 
             <div className="space-y-4">
-              {flights.slice(0, displayCount).map(renderFlightCard)}
+              {flights.slice(0, displayCount).map((flight: any) => (
+                <FlightCard
+                  key={flight.id}
+                  airline={flight.airline}
+                  flightNumber={flight.flightNumber}
+                  origin={flight.origin}
+                  destination={flight.destination}
+                  departureTime={flight.departureTime}
+                  arrivalTime={flight.arrivalTime}
+                  duration={flight.duration}
+                  price={flight.price}
+                  currency={flight.currency || watch("currency") || "USD"}
+                  status={flight.status}
+                  terminal={flight.terminal}
+                  aircraft={flight.aircraft}
+                  onSelect={() => handleBooking(flight)}
+                />
+              ))}
             </div>
 
+            {/* Show More Button */}
             {displayCount < flights.length && (
-              <div className="text-center mt-6">
+              <div className="flex justify-center mt-8">
                 <Button
                   onClick={handleShowMore}
+                  variant="showMore"
+                  className="w-full max-w-md py-6 text-base"
                   disabled={isLoadingMore}
-                  className="w-full max-w-sm"
                 >
                   {isLoadingMore ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
-                    </>
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading more...
+                    </div>
                   ) : (
-                    "Show More Flights"
+                    `Show More Flights (${
+                      flights.length - displayCount
+                    } remaining)`
                   )}
                 </Button>
               </div>
             )}
-          </div>
-        ) : (
-          !isLoading &&
-          watch("origin")?.length === 3 &&
-          watch("destination")?.length === 3 && (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">
-                {currentErrorMessage || "Please search for flights."}
-              </p>
-            </div>
-          )
-        )}
 
-        {/* Insurance Options */}
-        <Card className="mt-8">
-          <div className="p-6 space-y-4">
-            <h4 className="font-medium">Insurance Options</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {insuranceOptions.map((option) => (
-                <div
-                  key={option.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedInsurance === option.id
-                      ? "border-primary bg-primary/5"
-                      : "hover:border-primary/50"
-                  }`}
-                  onClick={() => setSelectedInsurance(option.id)}
-                >
-                  <div className="space-y-2">
-                    <h5 className="font-medium">{option.name}</h5>
-                    <p className="text-sm text-muted-foreground">
-                      {option.description}
-                    </p>
-                    <p className="text-lg font-bold">${option.price}</p>
-                  </div>
+            {/* Insurance Options */}
+            <Card className="mt-8">
+              <div className="p-6 space-y-4">
+                <h4 className="font-medium">Insurance Options</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {insuranceOptions.map((option) => (
+                    <div
+                      key={option.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                        selectedInsurance === option.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-primary/50"
+                      }`}
+                      onClick={() => setSelectedInsurance(option.id)}
+                    >
+                      <div className="space-y-2">
+                        <h5 className="font-medium">{option.name}</h5>
+                        <p className="text-sm text-muted-foreground">
+                          {option.description}
+                        </p>
+                        <p className="text-lg font-bold">${option.price}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            </Card>
           </div>
-        </Card>
+        )}
       </div>
     </div>
   );
-};
-
-export default BookingPage;
+}
