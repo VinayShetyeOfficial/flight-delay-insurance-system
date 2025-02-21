@@ -90,6 +90,8 @@ export default function BookingPage() {
   const [selectedAirlines, setSelectedAirlines] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string>("price");
   const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
+  // New state for Flight Mode
+  const [flightMode, setFlightMode] = useState<"direct" | "layover">("direct");
   const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -139,6 +141,11 @@ export default function BookingPage() {
     }
   };
 
+  // Handle flight mode change
+  const handleFlightModeChange = (mode: "direct" | "layover") => {
+    setFlightMode(mode);
+  };
+
   // Update return date when departure date changes (for round trip only)
   useEffect(() => {
     if (currentTripType === "roundTrip" && departureDate) {
@@ -157,7 +164,7 @@ export default function BookingPage() {
   }, [departureDate, returnDate, currentTripType, setValue]);
 
   // ---------------------------------------------------------------------------
-  // AI-Suggested: Updated searchFlights function with new fields & URL
+  // Updated searchFlights function with new fields & URL
   // ---------------------------------------------------------------------------
   const searchFlights = async (data: BookingForm) => {
     setIsLoading(true);
@@ -424,9 +431,9 @@ export default function BookingPage() {
     }
   };
 
-  //
+  // ---------------------------------------------------------------------------
   // Render
-  //
+  // ---------------------------------------------------------------------------
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
@@ -442,34 +449,67 @@ export default function BookingPage() {
         <Card className="mb-8">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Trip Type Selection */}
-              <div className="space-y-2">
-                <Label>Trip Type</Label>
-                <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
-                  <Button
-                    type="button"
-                    className={`px-4 py-2 transition-colors ${
-                      tripType === "roundTrip"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-transparent text-foreground hover:bg-transparent"
-                    }`}
-                    onClick={() => handleTripTypeChange("roundTrip")}
-                  >
-                    <Plane className="mr-2 h-4 w-4 rotate-45" />
-                    Round Trip
-                  </Button>
-                  <Button
-                    type="button"
-                    className={`px-4 py-2 transition-colors ${
-                      tripType === "oneWay"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-transparent text-foreground hover:bg-transparent"
-                    }`}
-                    onClick={() => handleTripTypeChange("oneWay")}
-                  >
-                    <Plane className="mr-2 h-4 w-4" />
-                    One Way
-                  </Button>
+              {/* Trip Type & Flight Mode Selection */}
+              {/* Trip Type & Flight Mode Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Trip Type */}
+                <div className="space-y-2">
+                  <Label>Trip Type</Label>
+                  <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
+                    <Button
+                      type="button"
+                      className={`px-4 py-2 transition-colors ${
+                        tripType === "roundTrip"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-foreground hover:bg-transparent"
+                      }`}
+                      onClick={() => handleTripTypeChange("roundTrip")}
+                    >
+                      <Plane className="mr-2 h-4 w-4 rotate-45" />
+                      Round Trip
+                    </Button>
+                    <Button
+                      type="button"
+                      className={`px-4 py-2 transition-colors ${
+                        tripType === "oneWay"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-foreground hover:bg-transparent"
+                      }`}
+                      onClick={() => handleTripTypeChange("oneWay")}
+                    >
+                      <Plane className="mr-2 h-4 w-4" />
+                      One Way
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Flight Mode */}
+                <div className="space-y-2">
+                  <Label>Flight Mode</Label>
+                  <div className="flex space-x-2 p-1.5 bg-muted rounded-lg w-fit">
+                    <Button
+                      type="button"
+                      className={`px-4 py-2 transition-colors ${
+                        flightMode === "direct"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-foreground hover:bg-transparent"
+                      }`}
+                      onClick={() => handleFlightModeChange("direct")}
+                    >
+                      Direct
+                    </Button>
+                    <Button
+                      type="button"
+                      className={`px-4 py-2 transition-colors ${
+                        flightMode === "layover"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-transparent text-foreground hover:bg-transparent"
+                      }`}
+                      onClick={() => handleFlightModeChange("layover")}
+                    >
+                      Layover
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -513,7 +553,7 @@ export default function BookingPage() {
               </div>
 
               {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Departure Date</Label>
                   <Controller
