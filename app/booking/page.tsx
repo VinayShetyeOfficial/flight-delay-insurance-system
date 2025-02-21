@@ -31,20 +31,25 @@ import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 
 // -----------------------------------------------------------------------------
-// Updated Zod Schema to match AI suggestion
+// Updated Zod Schema with refinement to ensure origin and destination are different
 // -----------------------------------------------------------------------------
-const bookingSchema = z.object({
-  origin: z.string().length(3, "Airport code must be 3 characters"),
-  destination: z.string().length(3, "Airport code must be 3 characters"),
-  departureDate: z.date(),
-  returnDate: z.date().optional(),
-  adults: z.number().min(1, "At least 1 adult is required").max(9),
-  children: z.number().min(0).max(9),
-  infants: z.number().min(0).max(9),
-  class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
-  currency: z.string().default("USD"),
-  tripType: z.enum(["oneWay", "roundTrip"]),
-});
+const bookingSchema = z
+  .object({
+    origin: z.string().length(3, "Airport code must be 3 characters"),
+    destination: z.string().length(3, "Airport code must be 3 characters"),
+    departureDate: z.date(),
+    returnDate: z.date().optional(),
+    adults: z.number().min(1, "At least 1 adult is required").max(9),
+    children: z.number().min(0).max(9),
+    infants: z.number().min(0).max(9),
+    class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
+    currency: z.string().default("USD"),
+    tripType: z.enum(["oneWay", "roundTrip"]),
+  })
+  .refine((data) => data.origin !== data.destination, {
+    message: "Origin and Destination cannot be the same",
+    path: ["destination"],
+  });
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
@@ -91,7 +96,7 @@ export default function BookingPage() {
   const [sortBy, setSortBy] = useState<string>("price");
   const [tripType, setTripType] = useState<"oneWay" | "roundTrip">("roundTrip");
   // New state for Flight Mode
-  const [flightMode, setFlightMode] = useState<"direct" | "layover">("direct");
+  const [nonStop, setNonStop] = useState<boolean>(false);
   const [displayCount, setDisplayCount] = useState(10); // Changed from 8 to 10
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -118,6 +123,11 @@ export default function BookingPage() {
   const returnDate = watch("returnDate");
   const currentTripType = watch("tripType");
 
+  // Also watch origin, destination, and class for empty state messages
+  const originValue = watch("origin") || "";
+  const destinationValue = watch("destination") || "";
+  const flightClassValue = watch("class") || "ECONOMY";
+
   //
   // If user is not logged in, redirect
   //
@@ -142,26 +152,78 @@ export default function BookingPage() {
   };
 
   // Handle flight mode change
-  const handleFlightModeChange = (mode: "direct" | "layover") => {
-    setFlightMode(mode);
+  const handleFlightModeChange = (isNonStop: boolean) => {
+    setNonStop(isNonStop);
+    console.log("Flight Mode (nonStop):", isNonStop);
   };
 
   // Update return date when departure date changes (for round trip only)
   useEffect(() => {
     if (currentTripType === "roundTrip" && departureDate) {
-      // If return date is before departure date, update it
       if (returnDate && returnDate < departureDate) {
         setValue("returnDate", addDays(departureDate, 1));
       }
-      // If no return date is set, set it to next day
       if (!returnDate) {
         setValue("returnDate", addDays(departureDate, 1));
       }
     } else if (currentTripType === "oneWay") {
-      // Always ensure return date is undefined for one-way trips
       setValue("returnDate", undefined);
     }
   }, [departureDate, returnDate, currentTripType, setValue]);
+
+  // ---------------------------------------------------------------------------
+  // Helper Functions for Dynamic Empty-State Messages
+  // ---------------------------------------------------------------------------
+  const getFlightClassLabel = (flightClass: string) => {
+    switch (flightClass) {
+      case "ECONOMY":
+        return "Economy Class";
+      case "PREMIUM_ECONOMY":
+        return "Premium Economy Class";
+      case "BUSINESS":
+        return "Business Class";
+      case "FIRST":
+        return "First Class";
+      default:
+        return flightClass;
+    }
+  };
+
+  const getEmptySearchMessage = () => {
+    const flightClassLabel = getFlightClassLabel(flightClassValue);
+    const originUpper = originValue.toUpperCase();
+    const destinationUpper = destinationValue.toUpperCase();
+
+    if (nonStop) {
+      const messages = [
+        `No direct ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
+        `Sorry, no direct ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
+        `There are no direct ${flightClassLabel} flight options for your route from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn’t find any direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are currently unavailable.`,
+        `We regret that there are no direct ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
+        `Direct ${flightClassLabel} flights from ${originUpper} to ${destinationUpper} are not available right now.`,
+        `At the moment, there are no direct ${flightClassLabel} flights connecting ${originUpper} and ${destinationUpper}.`,
+        `No direct ${flightClassLabel} flight deals available from ${originUpper} to ${destinationUpper}.`,
+        `Direct ${flightClassLabel} flight options from ${originUpper} to ${destinationUpper} could not be found.`,
+      ];
+      return messages[Math.floor(Math.random() * messages.length)];
+    } else {
+      const messages = [
+        `No ${flightClassLabel} flights available from ${originUpper} to ${destinationUpper}.`,
+        `Sorry, no ${flightClassLabel} flights found from ${originUpper} to ${destinationUpper}.`,
+        `There are no ${flightClassLabel} flight options available for your route from ${originUpper} to ${destinationUpper}.`,
+        `Unfortunately, we couldn’t find any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `We regret that there are no ${flightClassLabel} flights between ${originUpper} and ${destinationUpper} at this time.`,
+        `Currently, there are no ${flightClassLabel} flights connecting ${originUpper} and ${destinationUpper}.`,
+        `No ${flightClassLabel} flight deals available from ${originUpper} to ${destinationUpper}.`,
+        `There appear to be no ${flightClassLabel} flights operating between ${originUpper} and ${destinationUpper}.`,
+        `We couldn’t locate any ${flightClassLabel} flights from ${originUpper} to ${destinationUpper}.`,
+        `No ${flightClassLabel} flight options could be found for your journey from ${originUpper} to ${destinationUpper}.`,
+      ];
+      return messages[Math.floor(Math.random() * messages.length)];
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Updated searchFlights function with new fields & URL
@@ -186,12 +248,12 @@ export default function BookingPage() {
           infants: data.infants || 0,
           class: data.class,
           currency: data.currency,
+          nonStop: nonStop,
         }),
       });
 
       const flights = await response.json();
 
-      // Add console logs here
       console.group("Flight Search Results");
       console.log("Search Parameters:", data);
       console.log("Raw API Response:", flights);
@@ -221,7 +283,6 @@ export default function BookingPage() {
     setIsLoading(true);
 
     try {
-      // Format the date to YYYY-MM-DD
       const formattedDepartureDate = data.departureDate
         .toISOString()
         .split("T")[0];
@@ -235,6 +296,7 @@ export default function BookingPage() {
         infants: data.infants,
         class: data.class,
         currency: data.currency,
+        nonStop: nonStop, // Include the nonStop flag here
       };
 
       const response = await fetch("/api/flights/search", {
@@ -390,7 +452,6 @@ export default function BookingPage() {
   const handleShowMore = async () => {
     setIsLoadingMore(true);
     try {
-      // Add a small delay to show loading state (optional)
       await new Promise((resolve) => setTimeout(resolve, 500));
       setDisplayCount((prevCount) => Math.min(prevCount + 8, flights.length));
     } finally {
@@ -398,7 +459,7 @@ export default function BookingPage() {
     }
   };
 
-  // Add a function to handle initial flight results
+  // Function to handle initial flight results (if needed)
   const handleSearchSubmit = async (data: BookingForm) => {
     setIsLoading(true);
     try {
@@ -414,9 +475,8 @@ export default function BookingPage() {
 
       const flightResults = await response.json();
       setFlights(flightResults);
-      setDisplayCount(10); // Reset display count to 10 when new search is performed
+      setDisplayCount(10);
 
-      // Scroll to results
       document
         .getElementById("flight-results")
         ?.scrollIntoView({ behavior: "smooth" });
@@ -449,7 +509,6 @@ export default function BookingPage() {
         <Card className="mb-8">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Trip Type & Flight Mode Selection */}
               {/* Trip Type & Flight Mode Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Trip Type */}
@@ -490,24 +549,24 @@ export default function BookingPage() {
                     <Button
                       type="button"
                       className={`px-4 py-2 transition-colors ${
-                        flightMode === "direct"
+                        !nonStop
                           ? "bg-primary text-primary-foreground"
                           : "bg-transparent text-foreground hover:bg-transparent"
                       }`}
-                      onClick={() => handleFlightModeChange("direct")}
+                      onClick={() => handleFlightModeChange(false)}
                     >
-                      Direct
+                      Layover
                     </Button>
                     <Button
                       type="button"
                       className={`px-4 py-2 transition-colors ${
-                        flightMode === "layover"
+                        nonStop
                           ? "bg-primary text-primary-foreground"
                           : "bg-transparent text-foreground hover:bg-transparent"
                       }`}
-                      onClick={() => handleFlightModeChange("layover")}
+                      onClick={() => handleFlightModeChange(true)}
                     >
-                      Layover
+                      Direct
                     </Button>
                   </div>
                 </div>
@@ -601,7 +660,6 @@ export default function BookingPage() {
 
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Adults */}
                 <div className="space-y-2">
                   <Label>Adults</Label>
                   <div className="relative">
@@ -621,7 +679,6 @@ export default function BookingPage() {
                   )}
                 </div>
 
-                {/* Children */}
                 <div className="space-y-2">
                   <Label>Children (2-12)</Label>
                   <div className="relative">
@@ -642,7 +699,6 @@ export default function BookingPage() {
                   )}
                 </div>
 
-                {/* Infants */}
                 <div className="space-y-2">
                   <Label>Infants (0-2)</Label>
                   <div className="relative">
@@ -666,11 +722,10 @@ export default function BookingPage() {
 
               {/* Class & Currency */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Class */}
                 <div className="space-y-2">
                   <Label>Class</Label>
                   <div className="relative">
-                    <Select {...register("class")} defaultValue="Economy">
+                    <Select {...register("class")} defaultValue="ECONOMY">
                       <option value="ECONOMY">Economy</option>
                       <option value="PREMIUM_ECONOMY">Premium Economy</option>
                       <option value="BUSINESS">Business</option>
@@ -684,7 +739,6 @@ export default function BookingPage() {
                   )}
                 </div>
 
-                {/* Currency */}
                 <div className="space-y-2">
                   <Label>Currency</Label>
                   <Controller
@@ -730,8 +784,8 @@ export default function BookingPage() {
           </CardContent>
         </Card>
 
-        {/* Flight Results */}
-        {flights.length > 0 && (
+        {/* Flight Results or Empty State Message */}
+        {flights.length > 0 ? (
           <div className="space-y-6" id="flight-results">
             <div className="flex items-center justify-between">
               <div>
@@ -772,7 +826,6 @@ export default function BookingPage() {
               ))}
             </div>
 
-            {/* Show More Button */}
             {displayCount < flights.length && (
               <div className="flex justify-center mt-8">
                 <Button
@@ -794,36 +847,45 @@ export default function BookingPage() {
                 </Button>
               </div>
             )}
-
-            {/* Insurance Options */}
-            <Card className="mt-8">
-              <div className="p-6 space-y-4">
-                <h4 className="font-medium">Insurance Options</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {insuranceOptions.map((option) => (
-                    <div
-                      key={option.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                        selectedInsurance === option.id
-                          ? "border-primary bg-primary/5"
-                          : "hover:border-primary/50"
-                      }`}
-                      onClick={() => setSelectedInsurance(option.id)}
-                    >
-                      <div className="space-y-2">
-                        <h5 className="font-medium">{option.name}</h5>
-                        <p className="text-sm text-muted-foreground">
-                          {option.description}
-                        </p>
-                        <p className="text-lg font-bold">${option.price}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </Card>
           </div>
+        ) : (
+          // Only show empty state message when search has been performed (origin/destination entered) and not loading
+          !isLoading &&
+          originValue.length === 3 &&
+          destinationValue.length === 3 && (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">{getEmptySearchMessage()}</p>
+            </div>
+          )
         )}
+
+        {/* Insurance Options */}
+        <Card className="mt-8">
+          <div className="p-6 space-y-4">
+            <h4 className="font-medium">Insurance Options</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insuranceOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedInsurance(option.id)}
+                >
+                  <div className="space-y-2">
+                    <h5 className="font-medium">{option.name}</h5>
+                    <p className="text-sm text-muted-foreground">
+                      {option.description}
+                    </p>
+                    <p className="text-lg font-bold">${option.price}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
