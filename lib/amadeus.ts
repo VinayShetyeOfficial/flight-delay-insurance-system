@@ -84,124 +84,17 @@ class AmadeusService {
           },
           params: {
             ...params,
-            nonStop: params.nonStop,
+            // Convert travel class to Amadeus format
             travelClass: params.travelClass?.toUpperCase().replace(" ", "_"),
           },
         }
       );
 
-      const transformedFlights = await Promise.all(
-        response.data.data.map(async (offer: any) => {
-          const segments = offer.itineraries[0].segments;
-          const isLayover = segments.length > 1;
-
-          // If nonStop is true and this is a layover flight, skip it
-          if (params.nonStop && isLayover) {
-            return null;
-          }
-
-          // Common flight data
-          const baseFlightData = {
-            id: offer.id,
-            price: parseFloat(offer.price.total),
-            currency: offer.price.currency,
-            totalPrice: parseFloat(offer.price.grandTotal),
-          };
-
-          // Transform segments
-          const flightSegments = await Promise.all(
-            segments.map(async (segment: any) => ({
-              airline: response.data.dictionaries.carriers[segment.carrierCode],
-              airlineCode: segment.carrierCode,
-              flightNumber: `${segment.carrierCode}${segment.number}`,
-              origin: segment.departure.iataCode,
-              originCity:
-                response.data.dictionaries.locations[segment.departure.iataCode]
-                  ?.cityCode || segment.departure.iataCode,
-              destination: segment.arrival.iataCode,
-              destinationCity:
-                response.data.dictionaries.locations[segment.arrival.iataCode]
-                  ?.cityCode || segment.arrival.iataCode,
-              departureTime: new Date(
-                segment.departure.at
-              ).toLocaleTimeString(),
-              arrivalTime: new Date(segment.arrival.at).toLocaleTimeString(),
-              duration: this.parseDuration(segment.duration),
-              terminal: {
-                departure: segment.departure.terminal || "-",
-                arrival: segment.arrival.terminal || "-",
-              },
-              aircraft:
-                response.data.dictionaries.aircraft[segment.aircraft.code],
-              status: "SCHEDULED",
-            }))
-          );
-
-          if (isLayover) {
-            const firstSegment = flightSegments[0];
-            const lastSegment = flightSegments[flightSegments.length - 1];
-            const totalDuration = this.parseDuration(
-              offer.itineraries[0].duration
-            );
-            const segmentsDuration = flightSegments.reduce(
-              (acc, seg) => acc + seg.duration,
-              0
-            );
-            const layoverTime = totalDuration - segmentsDuration;
-
-            return {
-              ...baseFlightData,
-              isLayover: true,
-              segments: flightSegments,
-              layoverTime,
-              // Display data for the card
-              airline: firstSegment.airline,
-              airlineCode: firstSegment.airlineCode,
-              flightNumber: firstSegment.flightNumber,
-              origin: firstSegment.origin,
-              originCity: firstSegment.originCity,
-              destination: lastSegment.destination,
-              destinationCity: lastSegment.destinationCity,
-              departureTime: firstSegment.departureTime,
-              arrivalTime: lastSegment.arrivalTime,
-              duration: totalDuration,
-              aircraft: flightSegments.map((seg) => seg.aircraft).join(" → "),
-              status: "SCHEDULED",
-              terminal: {
-                departure: firstSegment.terminal.departure,
-                arrival: lastSegment.terminal.arrival,
-              },
-            };
-          } else {
-            return {
-              ...baseFlightData,
-              ...flightSegments[0],
-              isLayover: false,
-            };
-          }
-        })
-      );
-
-      // Filter out null values from skipped flights
-      return transformedFlights.filter(Boolean);
+      return response.data;
     } catch (error) {
       console.error("Failed to search flights:", error);
       throw error;
     }
-  }
-
-  // Helper method to parse ISO duration
-  private parseDuration(isoDuration: string): number {
-    const matches = isoDuration.match(/PT(\d+H)?(\d+M)?/);
-    let minutes = 0;
-
-    if (matches) {
-      const hours = matches[1] ? parseInt(matches[1]) : 0;
-      const mins = matches[2] ? parseInt(matches[2]) : 0;
-      minutes = hours * 60 + mins;
-    }
-
-    return minutes;
   }
 
   async getLocationDetails(iataCode: string) {
@@ -330,44 +223,6 @@ class AmadeusService {
     } catch (error) {
       console.error("Error fetching batch airline details:", error);
       return this.airlineCache;
-    }
-  }
-
-  // Helper method to get city name (you'll need to implement this)
-  private async getCityName(iataCode: string): Promise<string> {
-    // Implement city lookup logic here
-    // For now, return the code
-    return iataCode;
-  }
-
-  // Helper method to get airline name
-  private async getAirlineName(carrierCode: string): Promise<string> {
-    if (this.airlineCache[carrierCode]) {
-      return this.airlineCache[carrierCode];
-    }
-
-    try {
-      const token = await this.getAccessToken();
-      const response = await axios.get(
-        `${this.baseURL}/reference-data/airlines`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { airlineCodes: carrierCode },
-        }
-      );
-
-      if (response.data.data && response.data.data[0]) {
-        const airlineName =
-          response.data.data[0].commonName ||
-          response.data.data[0].businessName;
-        this.airlineCache[carrierCode] = airlineName;
-        return airlineName;
-      }
-
-      return carrierCode;
-    } catch (error) {
-      console.error(`Error fetching airline name for ${carrierCode}:`, error);
-      return carrierCode;
     }
   }
 }
