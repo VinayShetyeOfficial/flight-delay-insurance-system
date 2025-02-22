@@ -1,25 +1,29 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Building2, Clock, Plane } from "lucide-react";
-import { useEffect } from "react";
-import { getCurrencySymbol } from "@/lib/utils";
+import { useEffect, useRef } from "react";
+import { getCurrencySymbol, formatDuration } from "@/lib/utils";
 
-// Add status styles helper
-const getStatusStyles = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "active":
-      return "bg-green-100 text-green-800"; // Green for active flights
-    case "scheduled":
-      return "bg-blue-100 text-blue-800"; // Blue for scheduled flights
-    case "delayed":
-      return "bg-amber-100 text-amber-800"; // Amber/Yellow for delayed flights
-    default:
-      return "bg-gray-100 text-gray-800"; // Gray for unknown status
-  }
-};
+// This interface is used for each flight segment in a layover flight.
+interface FlightSegment {
+  airline: string;
+  airlineCode?: string;
+  flightNumber: string;
+  origin: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: number;
+  terminal?: {
+    departure: string;
+    arrival: string;
+  };
+  aircraft?: string;
+  status?: string;
+}
 
+// The FlightCardProps now optionally include layover flight details and a searchId.
 interface FlightCardProps {
+  // For direct flights
   airline: string;
   airlineCode?: string;
   flightNumber: string;
@@ -39,65 +43,119 @@ interface FlightCardProps {
   aircraft?: string;
   currency: string;
   onSelect?: () => void;
+  // For layover flights (optional)
+  segments?: FlightSegment[];
+  layoverTime?: number; // in minutes
+  totalPrice?: number;
+  isLayover: boolean;
+  searchId?: number; // new prop to indicate a new search
 }
 
-export default function FlightCard({
-  airline,
-  airlineCode,
-  flightNumber,
-  origin,
-  originCity,
-  destination,
-  destinationCity,
-  departureTime,
-  arrivalTime,
-  duration,
-  price,
-  status = "ACTIVE",
-  terminal,
-  aircraft,
-  currency = "USD",
-  onSelect,
-}: FlightCardProps) {
-  // Add console log when the card is rendered
-  useEffect(() => {
-    console.group(`Flight Details: ${flightNumber}`);
-    console.log("Airline IATA Code:", airlineCode);
-    console.log({
-      airline,
-      airlineCode,
-      flightNumber,
-      origin,
-      destination,
-      departureTime,
-      arrivalTime,
-      duration,
-      price,
-      status,
-      terminal,
-      aircraft,
-    });
-    console.groupEnd();
-  }, [
-    airline,
-    airlineCode,
-    flightNumber,
-    origin,
-    destination,
-    departureTime,
-    arrivalTime,
-    duration,
-    price,
-    status,
-    terminal,
-    aircraft,
-  ]);
+// Debug function for direct flights.
+const debugDirectFlightInfo = (props: FlightCardProps) => {
+  const output = `
+╔════════════════════════════════════════════════════════════╗
+║                ✈  FLIGHT SEARCH RESULTS  ✈               
+╠════════════════════════════════════════════════════════════╣
+║ Airline: ${props.airline} (${props.airlineCode || "N/A"})
+║ Flight Number: ${props.flightNumber}
+╠════════════════════════════════════════════════════════════╣
+║ Origin: ${props.origin}       🛫  Departure: ${
+    props.departureTime
+  }      Terminal: ${props.terminal?.departure || "-"}
+║ Destination: ${props.destination}  🛬  Arrival: ${
+    props.arrivalTime
+  }        Terminal: ${props.terminal?.arrival || "-"}
+╠════════════════════════════════════════════════════════════╣
+║ Duration: ${formatDuration(props.duration)}
+║ Aircraft Type: ${props.aircraft || "N/A"}
+╠════════════════════════════════════════════════════════════╣
+║ Status: ${props.status || "SCHEDULED"}
+║ Price: ${getCurrencySymbol(props.currency)}${props.price.toLocaleString(
+    undefined,
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  )}
+╚════════════════════════════════════════════════════════════╝
+`;
+  console.log(output);
+};
 
-  const formatDuration = (durationMinutes: number) => {
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    return `${hours}h ${minutes}m`;
-  };
+// Debug function for layover flights.
+const debugLayoverFlightInfo = (props: FlightCardProps) => {
+  if (!props.segments || props.segments.length < 2) {
+    console.warn("Incomplete layover flight data provided for debug output.");
+    return;
+  }
+
+  const segments = props.segments;
+  const totalPrice = props.totalPrice || props.price;
+  const layoverTime = props.layoverTime || 0;
+
+  let output = `
+╔════════════════════════════════════════════════════════════╗
+║                ✈  LAYOVER FLIGHT DETAILS  ✈                
+╠════════════════════════════════════════════════════════════╣
+║ Total Journey Summary:
+║ From: ${segments[0].origin} To: ${segments[segments.length - 1].destination}
+║ Total Duration: ${formatDuration(
+    segments.reduce((acc, seg) => acc + seg.duration, 0) + layoverTime
+  )}
+║ Total Price: ${getCurrencySymbol(props.currency)}${totalPrice.toLocaleString(
+    undefined,
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  )}
+╠════════════════════════════════════════════════════════════╣`;
+
+  segments.forEach((segment, index) => {
+    output += `
+║ SEGMENT ${index + 1}:
+║ Airline: ${segment.airline} (${segment.airlineCode || "N/A"})
+║ Flight: ${segment.flightNumber}
+║ From: ${segment.origin}    🛫  ${segment.departureTime}    Terminal: ${
+      segment.terminal?.departure || "-"
+    }
+║ To: ${segment.destination}    🛬  ${segment.arrivalTime}    Terminal: ${
+      segment.terminal?.arrival || "-"
+    }
+║ Duration: ${formatDuration(segment.duration)}
+║ Aircraft: ${segment.aircraft || "N/A"}
+║ Status: ${segment.status || "SCHEDULED"}`;
+
+    if (index < segments.length - 1) {
+      output += `
+╠════════════════════════════════════════════════════════════╣
+║ LAYOVER AT ${segment.destination}:
+║ Duration: ${formatDuration(layoverTime)}
+║ Next Flight Departs: ${segments[index + 1].departureTime}
+╠════════════════════════════════════════════════════════════╣`;
+    }
+  });
+
+  output += `
+╚════════════════════════════════════════════════════════════╝`;
+
+  console.log(output);
+};
+
+export default function FlightCard(props: FlightCardProps) {
+  const lastLoggedSearchId = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    // Only log debug info if the searchId has changed.
+    if (props.searchId !== lastLoggedSearchId.current) {
+      if (
+        props.segments &&
+        props.segments.length >= 2 &&
+        props.layoverTime !== undefined &&
+        props.totalPrice !== undefined
+      ) {
+        debugLayoverFlightInfo(props);
+      } else {
+        debugDirectFlightInfo(props);
+      }
+      lastLoggedSearchId.current = props.searchId;
+    }
+  }, [props.searchId]);
 
   return (
     <Card className="overflow-hidden">
@@ -106,14 +164,13 @@ export default function FlightCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center overflow-hidden shadow-[rgba(3,102,214,0.3)_0px_0px_0px_2px]">
-              {airlineCode ? (
+              {props.airlineCode ? (
                 <div className="relative">
                   <img
-                    src={`https://content.airhex.com/content/logos/airlines_${airlineCode}_200_200_s.png`}
-                    alt={`${airline} logo`}
+                    src={`https://content.airhex.com/content/logos/airlines_${props.airlineCode}_200_200_s.png`}
+                    alt={`${props.airline} logo`}
                     className="h-[100%] w-[100%] object-contain"
                     onError={(e) => {
-                      // Fallback to Plane icon if image fails to load
                       e.currentTarget.onerror = null;
                       e.currentTarget.style.display = "none";
                       e.currentTarget.parentElement
@@ -127,37 +184,27 @@ export default function FlightCard({
                 <Plane className="h-6 w-6 text-zinc-900" />
               )}
             </div>
-
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{airline}</h3>
-                {/* {airlineCode && (
-                  <span className="text-sm text-muted-foreground">
-                    ({airlineCode})
-                  </span>
-                )} */}
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs uppercase font-medium ${getStatusStyles(
-                    status
-                  )}`}
-                >
-                  {status}
+                <h3 className="text-lg font-semibold">{props.airline}</h3>
+                <span className="px-2 py-0.5 rounded-full text-xs uppercase font-medium">
+                  {/* {props.status || "SCHEDULED"} */}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Flight {flightNumber}
+                Flight {props.flightNumber}
               </p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold">
-              {getCurrencySymbol(currency)}
-              {price.toLocaleString(undefined, {
+              {getCurrencySymbol(props.currency)}
+              {props.price.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </p>
-            <p className="text-sm text-muted-foreground">per person</p>
+            <p className="text-sm text-muted-foreground">Ticket Price</p>
           </div>
         </div>
 
@@ -165,13 +212,11 @@ export default function FlightCard({
         <div className="grid grid-cols-[1fr,2fr,1fr] items-center gap-4">
           {/* Departure */}
           <div>
-            <p className="text-2xl font-bold">{departureTime}</p>
-            <p className="font-medium">
-              {originCity} ({origin})
-            </p>
+            <p className="text-2xl font-bold">{props.departureTime}</p>
+            <p className="font-medium">({props.origin})</p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
               <Building2 className="h-3 w-3" />
-              Terminal {terminal?.departure || "D"}
+              Terminal {props.terminal?.departure || "D"}
             </div>
           </div>
 
@@ -188,19 +233,17 @@ export default function FlightCard({
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3 w-3" />
-              {formatDuration(duration)} • Direct
+              {formatDuration(props.duration)} • Direct
             </div>
           </div>
 
           {/* Arrival */}
           <div className="text-right">
-            <p className="text-2xl font-bold">{arrivalTime}</p>
-            <p className="font-medium">
-              {destinationCity} ({destination})
-            </p>
+            <p className="text-2xl font-bold">{props.arrivalTime}</p>
+            <p className="font-medium">({props.destination})</p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
               <Building2 className="h-3 w-3" />
-              Terminal {terminal?.arrival || "B"}
+              Terminal {props.terminal?.arrival || "B"}
             </div>
           </div>
         </div>
@@ -208,9 +251,9 @@ export default function FlightCard({
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t">
           <p className="text-sm text-muted-foreground">
-            Aircraft: {aircraft || "Boeing 737"}
+            Aircraft: {props.aircraft || "Boeing 737"}
           </p>
-          <Button onClick={onSelect} className="px-8">
+          <Button onClick={props.onSelect} className="px-8">
             Select Flight
           </Button>
         </div>
