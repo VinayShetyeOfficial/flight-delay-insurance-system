@@ -34,21 +34,3 @@ export const CURRENCY_SYMBOLS: { [key: string]: string } = {
 export const getCurrencySymbol = (currency: string) => {
   return CURRENCY_SYMBOLS[currency] || currency;
 };
-
-/**
- * Formats a duration in minutes into a human-readable string
- * @param minutes Total duration in minutes
- * @returns Formatted string like "2h 30m" or "45m"
- */
-export function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours === 0) {
-    return `${remainingMinutes}m`;
-  }
-
-  return remainingMinutes === 0
-    ? `${hours}h`
-    : `${hours}h ${remainingMinutes}m`;
-}
