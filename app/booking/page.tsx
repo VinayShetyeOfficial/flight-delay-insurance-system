@@ -29,25 +29,73 @@ import { addDays } from "date-fns";
 
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
+import { LocationSuggestions } from "@/components/location-suggestions";
 
-// Updated Zod Schema with default currency enforced to "USD"
+// Updated Zod Schema with better validation messages
 const bookingSchema = z
   .object({
-    origin: z.string().length(3, "Airport code must be 3 characters"),
-    destination: z.string().length(3, "Airport code must be 3 characters"),
-    departureDate: z.date(),
+    origin: z
+      .string()
+      .min(
+        1,
+        "Please enter an airport code (e.g., LAX) or city name (e.g., London)"
+      ),
+    originName: z.string().optional(),
+    destination: z
+      .string()
+      .min(
+        1,
+        "Please enter an airport code (e.g., JFK) or city name (e.g., Paris)"
+      ),
+    destinationName: z.string().optional(),
+    departureDate: z.date({
+      required_error: "Departure date is required",
+    }),
     returnDate: z.date().optional(),
-    adults: z.number().min(1, "At least 1 adult is required").max(9),
-    children: z.number().min(0).max(9),
-    infants: z.number().min(0).max(9),
+    adults: z
+      .number()
+      .min(1, "At least 1 adult is required")
+      .max(9, "Maximum 9 adults allowed"),
+    children: z
+      .number()
+      .min(0, "Cannot be negative")
+      .max(9, "Maximum 9 children allowed"),
+    infants: z
+      .number()
+      .min(0, "Cannot be negative")
+      .max(9, "Maximum 9 infants allowed"),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
     currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
   })
   .refine((data) => data.origin !== data.destination, {
-    message: "Origin and Destination cannot be the same",
+    message: "Origin and destination airports cannot be the same",
     path: ["destination"],
-  });
+  })
+  .refine(
+    (data) => {
+      if (data.origin.length === 3) {
+        return data.origin.toUpperCase() === data.origin;
+      }
+      return true;
+    },
+    {
+      message: "Airport code must be 3 uppercase letters (e.g., LAX)",
+      path: ["origin"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.destination.length === 3) {
+        return data.destination.toUpperCase() === data.destination;
+      }
+      return true;
+    },
+    {
+      message: "Airport code must be 3 uppercase letters (e.g., JFK)",
+      path: ["destination"],
+    }
+  );
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
@@ -104,6 +152,9 @@ const BookingPage = () => {
     nonStop: boolean;
   } | null>(null);
   const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
+  const [originSearchEnabled, setOriginSearchEnabled] = useState(true);
+  const [destinationSearchEnabled, setDestinationSearchEnabled] =
+    useState(true);
 
   const {
     register,
@@ -377,7 +428,14 @@ const BookingPage = () => {
         {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/*
+              IMPORTANT: autoComplete="off" on the form + each input
+            */}
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="space-y-6"
+              autoComplete="off"
+            >
               {/* Trip Type & Flight Mode Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Trip Type */}
@@ -449,12 +507,26 @@ const BookingPage = () => {
                     <PlaneTakeoff className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="origin"
-                      {...register("origin")}
-                      placeholder="Enter origin city"
+                      autoComplete="off"
+                      {...register("origin", {
+                        onChange: (e) => {
+                          if (!originSearchEnabled) {
+                            setOriginSearchEnabled(true);
+                          }
+                          setValue("origin", e.target.value);
+                        },
+                      })}
+                      placeholder="Enter origin city or airport"
                       className="pl-10"
-                      onChange={(e) => {
-                        e.target.value = e.target.value.toUpperCase();
+                    />
+                    <LocationSuggestions
+                      searchTerm={watch("origin")}
+                      onSelect={({ code, name }) => {
+                        setValue("origin", code);
+                        setValue("originName", name);
                       }}
+                      isEnabled={originSearchEnabled}
+                      onSearchStateChange={setOriginSearchEnabled}
                     />
                   </div>
                   {errors.origin && (
@@ -470,12 +542,26 @@ const BookingPage = () => {
                     <PlaneLanding className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="destination"
-                      {...register("destination")}
-                      placeholder="Enter destination city"
+                      autoComplete="off"
+                      {...register("destination", {
+                        onChange: (e) => {
+                          if (!destinationSearchEnabled) {
+                            setDestinationSearchEnabled(true);
+                          }
+                          setValue("destination", e.target.value);
+                        },
+                      })}
+                      placeholder="Enter destination city or airport"
                       className="pl-10"
-                      onChange={(e) => {
-                        e.target.value = e.target.value.toUpperCase();
+                    />
+                    <LocationSuggestions
+                      searchTerm={watch("destination")}
+                      onSelect={({ code, name }) => {
+                        setValue("destination", code);
+                        setValue("destinationName", name);
                       }}
+                      isEnabled={destinationSearchEnabled}
+                      onSearchStateChange={setDestinationSearchEnabled}
                     />
                   </div>
                   {errors.destination && (
@@ -541,6 +627,7 @@ const BookingPage = () => {
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
+                      autoComplete="off"
                       {...register("adults", { valueAsNumber: true })}
                       min={1}
                       max={9}
@@ -560,6 +647,7 @@ const BookingPage = () => {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
+                      autoComplete="off"
                       {...register("children", { valueAsNumber: true })}
                       min={0}
                       max={9}
@@ -580,6 +668,7 @@ const BookingPage = () => {
                     <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
+                      autoComplete="off"
                       {...register("infants", { valueAsNumber: true })}
                       min={0}
                       max={9}
