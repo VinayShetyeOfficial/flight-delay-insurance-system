@@ -764,6 +764,10 @@ const BookingPage = () => {
                 {Math.min(displayCount, flights.length)} of {flights.length}{" "}
                 flights
               </h2>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Filter />
+                Filter
+              </Button>
             </div>
 
             <div className="space-y-4">
