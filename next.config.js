@@ -1,13 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "content.airhex.com",
-        pathname: "/content/logos/**",
-      },
-    ],
+    domains: ["assets.wego.com", "content.airhex.com"],
+    minimumCacheTTL: 3600,
   },
 };
 
