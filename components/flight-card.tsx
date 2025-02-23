@@ -157,6 +157,18 @@ export default function FlightCard(props: FlightCardProps) {
     }
   }, [props.searchId]);
 
+  // Helper function to generate route string
+  const getRouteString = (props: FlightCardProps) => {
+    if (props.segments && props.segments.length > 1) {
+      // For flights with layovers
+      return `Route: ${props.segments.map((seg) => seg.origin).join(" → ")} → ${
+        props.segments[props.segments.length - 1].destination
+      }`;
+    }
+    // For direct flights
+    return `Route: ${props.origin} → ${props.destination}`;
+  };
+
   return (
     <Card className="overflow-hidden">
       <div className="p-6 space-y-6">
@@ -234,7 +246,7 @@ export default function FlightCard(props: FlightCardProps) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-3 w-3" />
               {formatDuration(props.duration)}
-              {props.segments
+              {props.segments && props.segments.length > 1
                 ? ` • ${props.segments.length - 1} ${
                     props.segments.length - 1 === 1 ? "Layover" : "Layovers"
                   }`
@@ -254,13 +266,16 @@ export default function FlightCard(props: FlightCardProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <p className="text-sm text-muted-foreground">
-            Aircraft: {props.aircraft || "Boeing 737"}
-          </p>
-          <Button onClick={props.onSelect} className="px-8">
-            Select Flight
-          </Button>
+        <div className="flex flex-col gap-2 pt-4 border-t">
+          <div className="flex flex-col text-sm text-muted-foreground">
+            <p>{getRouteString(props)}</p>
+            <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={props.onSelect} className="px-8">
+              Select Flight
+            </Button>
+          </div>
         </div>
       </div>
     </Card>
