@@ -90,6 +90,22 @@ class AmadeusService {
         }
       );
 
+      const getBaggageInfo = (segment: any) => {
+        const checkedBags = segment.includedCheckedBags;
+        const cabinBags = segment.includedCabinBags;
+
+        return {
+          includedCheckedBags: checkedBags
+            ? checkedBags.quantity || (checkedBags.weight ? 1 : 0) // Handle both quantity and weight-based
+            : 0,
+          includedCabinBags: cabinBags
+            ? cabinBags.quantity || 1 // Default to 1 if cabin bag is allowed but quantity not specified
+            : 0,
+          checkedBagWeight: checkedBags?.weight || null,
+          checkedBagWeightUnit: checkedBags?.weightUnit || null,
+        };
+      };
+
       const transformedFlights = await Promise.all(
         response.data.data.map(async (offer: any) => {
           const segments = offer.itineraries[0].segments;
@@ -100,12 +116,24 @@ class AmadeusService {
             return null;
           }
 
+          // Get baggage info from the first traveler's first segment
+          const firstSegmentBaggage =
+            offer.travelerPricings[0].fareDetailsBySegment[0];
+          const baggageInfo = getBaggageInfo(firstSegmentBaggage);
+
+          // Get cabin class from the first segment
+          const cabinClass =
+            offer.travelerPricings[0].fareDetailsBySegment[0].cabin ||
+            params.travelClass;
+
           // Common flight data
           const baseFlightData = {
             id: offer.id,
             price: parseFloat(offer.price.total),
             currency: offer.price.currency,
             totalPrice: parseFloat(offer.price.grandTotal),
+            cabinClass: cabinClass,
+            baggage: baggageInfo,
           };
 
           // Transform segments
