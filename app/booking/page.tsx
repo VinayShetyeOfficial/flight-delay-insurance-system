@@ -24,6 +24,8 @@ import {
   Search,
   Filter,
   Loader2,
+  ArrowLeft,
+  LayoutDashboard,
 } from "lucide-react";
 import { addDays } from "date-fns";
 
@@ -281,8 +283,8 @@ const BookingPage = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          origin: data.origin,
-          destination: data.destination,
+          origin: data.origin.trim(),
+          destination: data.destination.trim(),
           departureDate: data.departureDate.toISOString().split("T")[0],
           returnDate: data.returnDate
             ? data.returnDate.toISOString().split("T")[0]
@@ -331,9 +333,10 @@ const BookingPage = () => {
         .toISOString()
         .split("T")[0];
 
+      // Ensure trimmed values for origin and destination
       const searchParams = {
-        origin: data.origin.toUpperCase(),
-        destination: data.destination.toUpperCase(),
+        origin: data.origin.trim().toUpperCase(),
+        destination: data.destination.trim().toUpperCase(),
         departureDate: formattedDepartureDate,
         returnDate: data.returnDate
           ? data.returnDate.toISOString().split("T")[0]
@@ -478,12 +481,26 @@ const BookingPage = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col space-y-2 mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Flight Booking</h1>
-          <p className="text-muted-foreground">
-            Search and book flights with insurance coverage
-          </p>
+        {/* Page Header with Dashboard Button */}
+        <div className="flex flex-col space-y-4 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">
+                Flight Booking
+              </h1>
+              <p className="text-muted-foreground">
+                Search and book flights with insurance coverage
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard")}
+              className="flex items-center gap-2 hover:bg-muted"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </Button>
+          </div>
         </div>
 
         {/* Booking Form */}
@@ -572,7 +589,7 @@ const BookingPage = () => {
                           if (!originSearchEnabled) {
                             setOriginSearchEnabled(true);
                           }
-                          setValue("origin", e.target.value);
+                          setValue("origin", e.target.value.trim());
                         },
                       })}
                       placeholder="Enter origin city or airport"
@@ -607,7 +624,7 @@ const BookingPage = () => {
                           if (!destinationSearchEnabled) {
                             setDestinationSearchEnabled(true);
                           }
-                          setValue("destination", e.target.value);
+                          setValue("destination", e.target.value.trim());
                         },
                       })}
                       placeholder="Enter destination city or airport"
