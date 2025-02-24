@@ -11,7 +11,7 @@ import {
   Power,
   Coffee,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrencySymbol, formatDuration } from "@/lib/utils";
 import {
   Accordion,
@@ -200,8 +200,22 @@ const formatDurationHM = (minutes: number) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+// Add these interfaces at the top
+interface TravelPayoutsLocation {
+  type: string;
+  code: string;
+  name: string;
+  city_name?: string;
+  main_airport_name?: string;
+}
+
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
+
+  // Add these states in the component
+  const [locationDetails, setLocationDetails] = useState<{
+    [key: string]: TravelPayoutsLocation;
+  }>({});
 
   useEffect(() => {
     // Only log debug info if the searchId has changed.
@@ -219,6 +233,53 @@ export default function FlightCard(props: FlightCardProps) {
       lastLoggedSearchId.current = props.searchId;
     }
   }, [props.searchId]);
+
+  useEffect(() => {
+    const fetchLocationDetails = async () => {
+      if (!props.segments) return;
+
+      const fetchDetails = async (iataCode: string) => {
+        try {
+          const response = await fetch(
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+          );
+          const data = await response.json();
+
+          // Try to find airport result first
+          const airportResult = data.find(
+            (item: any) => item.type === "airport"
+          );
+          if (airportResult) return airportResult;
+
+          // If no airport found, try city result
+          const cityResult = data.find((item: any) => item.type === "city");
+          if (cityResult) return cityResult;
+
+          return null;
+        } catch (error) {
+          console.error(`Error fetching details for ${iataCode}:`, error);
+          return null;
+        }
+      };
+
+      const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
+
+      for (const segment of props.segments) {
+        if (!newLocationDetails[segment.origin]) {
+          const details = await fetchDetails(segment.origin);
+          if (details) newLocationDetails[segment.origin] = details;
+        }
+        if (!newLocationDetails[segment.destination]) {
+          const details = await fetchDetails(segment.destination);
+          if (details) newLocationDetails[segment.destination] = details;
+        }
+      }
+
+      setLocationDetails(newLocationDetails);
+    };
+
+    fetchLocationDetails();
+  }, [props.segments]);
 
   // Helper function to generate route string
   const getRouteString = (props: FlightCardProps) => {
@@ -477,18 +538,17 @@ export default function FlightCard(props: FlightCardProps) {
                         {/* Origin and Destination with Flight Path */}
                         <div className="flex items-center justify-between text-muted-foreground">
                           <div>
-                            <div>
-                              {segment.origin} ({segment.originCity})
-                            </div>
-                            <div className="text-xs">
-                              Terminal {segment.terminal.departure}
-                            </div>
-                            <div className="text-xs">
-                              {segment.departureTime}
+                            <div className="font-semibold text-base">
+                              {segment.origin} (
+                              {locationDetails[segment.origin]?.type === "city"
+                                ? locationDetails[segment.origin]?.name
+                                : locationDetails[segment.origin]?.city_name ||
+                                  segment.origin}
+                              )
                             </div>
                           </div>
 
-                          {/* Flight Path Visualization - Dark path with light circle */}
+                          {/* Flight Path Visualization - Moved here */}
                           <div className="flex-1 mx-4">
                             <div className="flex items-center gap-2">
                               <div className="h-2 w-2 rounded-full bg-gray-400" />
@@ -502,11 +562,46 @@ export default function FlightCard(props: FlightCardProps) {
                           </div>
 
                           <div className="text-right">
-                            <div>
-                              {segment.destination} ({segment.destinationCity})
+                            <div className="font-semibold text-base">
+                              {segment.destination} (
+                              {locationDetails[segment.destination]?.type ===
+                              "city"
+                                ? locationDetails[segment.destination]?.name
+                                : locationDetails[segment.destination]
+                                    ?.city_name || segment.destination}
+                              )
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Airport Names and Terminal Info - Now in a separate row */}
+                        <div className="flex justify-between text-muted-foreground">
+                          <div>
+                            <div className="text-sm">
+                              {locationDetails[segment.origin]?.type === "city"
+                                ? locationDetails[segment.origin]
+                                    ?.main_airport_name
+                                : locationDetails[segment.origin]?.name || ""}
                             </div>
                             <div className="text-xs">
-                              Terminal {segment.terminal.arrival}
+                              Terminal {segment.terminal?.departure || "-"}
+                            </div>
+                            <div className="text-xs">
+                              {segment.departureTime}
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-sm">
+                              {locationDetails[segment.destination]?.type ===
+                              "city"
+                                ? locationDetails[segment.destination]
+                                    ?.main_airport_name
+                                : locationDetails[segment.destination]?.name ||
+                                  ""}
+                            </div>
+                            <div className="text-xs">
+                              Terminal {segment.terminal?.arrival || "-"}
                             </div>
                             <div className="text-xs">{segment.arrivalTime}</div>
                           </div>
