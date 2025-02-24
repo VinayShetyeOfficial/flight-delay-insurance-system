@@ -30,6 +30,7 @@ import { addDays } from "date-fns";
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { LocationSuggestions } from "@/components/location-suggestions";
+import { FlightCardSkeleton } from "@/components/flight-card";
 
 // Updated Zod Schema with better validation messages
 const bookingSchema = z
@@ -162,7 +163,7 @@ const BookingPage = () => {
     control,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors, touchedFields, isSubmitted },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
@@ -172,6 +173,7 @@ const BookingPage = () => {
       currency: "USD",
       tripType: "roundTrip",
     },
+    mode: "onChange",
   });
 
   // Watch dates, trip type, origin, and destination
@@ -405,9 +407,6 @@ const BookingPage = () => {
     }
   };
 
-  // Filter flights to display only those whose source and final destination match the entered values.
-  const filteredFlights = flights;
-
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
@@ -428,9 +427,7 @@ const BookingPage = () => {
         {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
-            {/*
-              IMPORTANT: autoComplete="off" on the form + each input
-            */}
+            {/* IMPORTANT: autoComplete="off" on the form + each input */}
             <form
               onSubmit={handleSubmit(onSubmit)}
               className="space-y-6"
@@ -529,7 +526,7 @@ const BookingPage = () => {
                       onSearchStateChange={setOriginSearchEnabled}
                     />
                   </div>
-                  {errors.origin && (
+                  {errors.origin && (touchedFields.origin || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.origin.message}
                     </p>
@@ -564,11 +561,12 @@ const BookingPage = () => {
                       onSearchStateChange={setDestinationSearchEnabled}
                     />
                   </div>
-                  {errors.destination && (
-                    <p className="text-destructive text-sm">
-                      {errors.destination.message}
-                    </p>
-                  )}
+                  {errors.destination &&
+                    (touchedFields.destination || isSubmitted) && (
+                      <p className="text-destructive text-sm">
+                        {errors.destination.message}
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -588,11 +586,12 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.departureDate && (
-                    <p className="text-destructive text-sm">
-                      {errors.departureDate.message}
-                    </p>
-                  )}
+                  {errors.departureDate &&
+                    (touchedFields.departureDate || isSubmitted) && (
+                      <p className="text-destructive text-sm">
+                        {errors.departureDate.message}
+                      </p>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -634,7 +633,7 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.adults && (
+                  {errors.adults && (touchedFields.adults || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.adults.message}
                     </p>
@@ -655,11 +654,12 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.children && (
-                    <p className="text-destructive text-sm">
-                      {errors.children.message}
-                    </p>
-                  )}
+                  {errors.children &&
+                    (touchedFields.children || isSubmitted) && (
+                      <p className="text-destructive text-sm">
+                        {errors.children.message}
+                      </p>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -676,7 +676,7 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.infants && (
+                  {errors.infants && (touchedFields.infants || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.infants.message}
                     </p>
@@ -696,7 +696,7 @@ const BookingPage = () => {
                       <option value="FIRST">First</option>
                     </Select>
                   </div>
-                  {errors.class && (
+                  {errors.class && (touchedFields.class || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
                     </p>
@@ -716,11 +716,12 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.currency && (
-                    <p className="text-destructive text-sm">
-                      {errors.currency.message}
-                    </p>
-                  )}
+                  {errors.currency &&
+                    (touchedFields.currency || isSubmitted) && (
+                      <p className="text-destructive text-sm">
+                        {errors.currency.message}
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -749,7 +750,13 @@ const BookingPage = () => {
         </Card>
 
         {/* Flight Results */}
-        {flights.length > 0 ? (
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <FlightCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : flights.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
