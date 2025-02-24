@@ -728,7 +728,7 @@ export default function FlightCard(props: FlightCardProps) {
                         {/* Layover Information */}
                         {index < props.segments.length - 1 && (
                           <div
-                            className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4"
+                            className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
                             style={{ borderTopStyle: "dashed" }}
                           >
                             <Clock className="h-3 w-3 inline mr-1" />
