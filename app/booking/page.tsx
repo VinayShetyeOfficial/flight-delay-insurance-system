@@ -30,8 +30,6 @@ import { addDays } from "date-fns";
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { LocationSuggestions } from "@/components/location-suggestions";
-import { FlightCardSkeleton } from "@/components/flight-card";
-import { FlightFilters, FilterOptions } from "@/components/flight-filters";
 
 // Updated Zod Schema with better validation messages
 const bookingSchema = z
@@ -157,8 +155,6 @@ const BookingPage = () => {
   const [originSearchEnabled, setOriginSearchEnabled] = useState(true);
   const [destinationSearchEnabled, setDestinationSearchEnabled] =
     useState(true);
-  const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
-  const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
 
   const {
     register,
@@ -166,7 +162,7 @@ const BookingPage = () => {
     control,
     watch,
     setValue,
-    formState: { errors, touchedFields, isSubmitted },
+    formState: { errors },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
@@ -176,7 +172,6 @@ const BookingPage = () => {
       currency: "USD",
       tripType: "roundTrip",
     },
-    mode: "onChange",
   });
 
   // Watch dates, trip type, origin, and destination
@@ -410,69 +405,13 @@ const BookingPage = () => {
     }
   };
 
+  // Filter flights to display only those whose source and final destination match the entered values.
+  const filteredFlights = flights;
+
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
     return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
-  };
-
-  // Add this useEffect to update filtered flights when main flights array changes
-  useEffect(() => {
-    setFilteredFlights(flights);
-    const airlines = Array.from(
-      new Set(flights.map((flight) => flight.airline))
-    );
-    setUniqueAirlines(airlines);
-  }, [flights]);
-
-  // Add this function to handle filter changes
-  const handleFilterChange = (filters: FilterOptions) => {
-    let filtered = [...flights];
-
-    // Apply airline filters
-    if (filters.airlines.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.airlines.includes(flight.airline)
-      );
-    }
-
-    // Apply non-stop filter
-    if (filters.nonStop) {
-      filtered = filtered.filter((flight) => !flight.isLayover);
-    }
-
-    // Apply cabin class filter
-    if (filters.cabinClass.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.cabinClass.includes(flight.cabinClass)
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (filters.sortBy) {
-        case "price_low":
-          return a.price - b.price;
-        case "price_high":
-          return b.price - a.price;
-        case "duration_short":
-          return a.duration - b.duration;
-        case "departure_early":
-          return (
-            new Date(a.departureTime).getTime() -
-            new Date(b.departureTime).getTime()
-          );
-        case "arrival_early":
-          return (
-            new Date(a.arrivalTime).getTime() -
-            new Date(b.arrivalTime).getTime()
-          );
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredFlights(filtered);
   };
 
   return (
@@ -489,7 +428,9 @@ const BookingPage = () => {
         {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
-            {/* IMPORTANT: autoComplete="off" on the form + each input */}
+            {/*
+              IMPORTANT: autoComplete="off" on the form + each input
+            */}
             <form
               onSubmit={handleSubmit(onSubmit)}
               className="space-y-6"
@@ -588,7 +529,7 @@ const BookingPage = () => {
                       onSearchStateChange={setOriginSearchEnabled}
                     />
                   </div>
-                  {errors.origin && (touchedFields.origin || isSubmitted) && (
+                  {errors.origin && (
                     <p className="text-destructive text-sm">
                       {errors.origin.message}
                     </p>
@@ -623,12 +564,11 @@ const BookingPage = () => {
                       onSearchStateChange={setDestinationSearchEnabled}
                     />
                   </div>
-                  {errors.destination &&
-                    (touchedFields.destination || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.destination.message}
-                      </p>
-                    )}
+                  {errors.destination && (
+                    <p className="text-destructive text-sm">
+                      {errors.destination.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -648,12 +588,11 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.departureDate &&
-                    (touchedFields.departureDate || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.departureDate.message}
-                      </p>
-                    )}
+                  {errors.departureDate && (
+                    <p className="text-destructive text-sm">
+                      {errors.departureDate.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -695,7 +634,7 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.adults && (touchedFields.adults || isSubmitted) && (
+                  {errors.adults && (
                     <p className="text-destructive text-sm">
                       {errors.adults.message}
                     </p>
@@ -716,12 +655,11 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.children &&
-                    (touchedFields.children || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.children.message}
-                      </p>
-                    )}
+                  {errors.children && (
+                    <p className="text-destructive text-sm">
+                      {errors.children.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -738,7 +676,7 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.infants && (touchedFields.infants || isSubmitted) && (
+                  {errors.infants && (
                     <p className="text-destructive text-sm">
                       {errors.infants.message}
                     </p>
@@ -758,7 +696,7 @@ const BookingPage = () => {
                       <option value="FIRST">First</option>
                     </Select>
                   </div>
-                  {errors.class && (touchedFields.class || isSubmitted) && (
+                  {errors.class && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
                     </p>
@@ -778,12 +716,11 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.currency &&
-                    (touchedFields.currency || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.currency.message}
-                      </p>
-                    )}
+                  {errors.currency && (
+                    <p className="text-destructive text-sm">
+                      {errors.currency.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -812,31 +749,21 @@ const BookingPage = () => {
         </Card>
 
         {/* Flight Results */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <FlightCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : flights.length > 0 ? (
+        {flights.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
                 Available Flights - Showing{" "}
-                {Math.min(displayCount, filteredFlights.length)} of{" "}
-                {filteredFlights.length} flights
+                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
+                flights
               </h2>
-              <FlightFilters
-                airlines={uniqueAirlines}
-                onFilterChange={handleFilterChange}
-              />
             </div>
 
             <div className="space-y-4">
-              {filteredFlights.slice(0, displayCount).map(renderFlightCard)}
+              {flights.slice(0, displayCount).map(renderFlightCard)}
             </div>
 
-            {displayCount < filteredFlights.length && (
+            {displayCount < flights.length && (
               <div className="text-center mt-6">
                 <Button
                   onClick={handleShowMore}
