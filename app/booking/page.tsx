@@ -31,6 +31,7 @@ import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { LocationSuggestions } from "@/components/location-suggestions";
 import { FlightCardSkeleton } from "@/components/flight-card";
+import { FlightFilters, FilterOptions } from "@/components/flight-filters";
 
 // Updated Zod Schema with better validation messages
 const bookingSchema = z
@@ -156,6 +157,8 @@ const BookingPage = () => {
   const [originSearchEnabled, setOriginSearchEnabled] = useState(true);
   const [destinationSearchEnabled, setDestinationSearchEnabled] =
     useState(true);
+  const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
+  const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
 
   const {
     register,
@@ -411,6 +414,65 @@ const BookingPage = () => {
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
     return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
+  };
+
+  // Add this useEffect to update filtered flights when main flights array changes
+  useEffect(() => {
+    setFilteredFlights(flights);
+    const airlines = Array.from(
+      new Set(flights.map((flight) => flight.airline))
+    );
+    setUniqueAirlines(airlines);
+  }, [flights]);
+
+  // Add this function to handle filter changes
+  const handleFilterChange = (filters: FilterOptions) => {
+    let filtered = [...flights];
+
+    // Apply airline filters
+    if (filters.airlines.length > 0) {
+      filtered = filtered.filter((flight) =>
+        filters.airlines.includes(flight.airline)
+      );
+    }
+
+    // Apply non-stop filter
+    if (filters.nonStop) {
+      filtered = filtered.filter((flight) => !flight.isLayover);
+    }
+
+    // Apply cabin class filter
+    if (filters.cabinClass.length > 0) {
+      filtered = filtered.filter((flight) =>
+        filters.cabinClass.includes(flight.cabinClass)
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case "price_low":
+          return a.price - b.price;
+        case "price_high":
+          return b.price - a.price;
+        case "duration_short":
+          return a.duration - b.duration;
+        case "departure_early":
+          return (
+            new Date(a.departureTime).getTime() -
+            new Date(b.departureTime).getTime()
+          );
+        case "arrival_early":
+          return (
+            new Date(a.arrivalTime).getTime() -
+            new Date(b.arrivalTime).getTime()
+          );
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredFlights(filtered);
   };
 
   return (
@@ -761,20 +823,20 @@ const BookingPage = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
                 Available Flights - Showing{" "}
-                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
-                flights
+                {Math.min(displayCount, filteredFlights.length)} of{" "}
+                {filteredFlights.length} flights
               </h2>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Filter />
-                Filter
-              </Button>
+              <FlightFilters
+                airlines={uniqueAirlines}
+                onFilterChange={handleFilterChange}
+              />
             </div>
 
             <div className="space-y-4">
-              {flights.slice(0, displayCount).map(renderFlightCard)}
+              {filteredFlights.slice(0, displayCount).map(renderFlightCard)}
             </div>
 
-            {displayCount < flights.length && (
+            {displayCount < filteredFlights.length && (
               <div className="text-center mt-6">
                 <Button
                   onClick={handleShowMore}
