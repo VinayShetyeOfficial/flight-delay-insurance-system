@@ -19,6 +19,8 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -72,6 +74,7 @@ interface FlightCardProps {
     checkedBagWeightUnit?: string | null;
   };
   cabinClass?: string;
+  isLoading?: boolean;
 }
 
 // Debug function for direct flights.
@@ -209,6 +212,109 @@ interface TravelPayoutsLocation {
   main_airport_name?: string;
 }
 
+// Add this helper function near the top of the file
+const AirlineLogo = ({
+  airlineCode,
+  airline,
+  size = 48, // default size for the main card
+}: {
+  airlineCode?: string;
+  airline: string;
+  size?: number;
+}) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!airlineCode || imgError) {
+    return <Plane className={`h-${size / 16} w-${size / 16} text-blue-500`} />;
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <Image
+        src={`https://assets.wego.com/image/upload/h_240,c_fill,f_auto,fl_lossy,q_auto:best,g_auto/v20250220/flights/airlines_square/${airlineCode}.png`}
+        alt={`${airline} logo`}
+        width={size}
+        height={size}
+        className="object-contain"
+        onError={() => setImgError(true)}
+        priority={true}
+      />
+    </div>
+  );
+};
+
+export function FlightCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      {/* Header with gradient background */}
+      <div
+        className="p-4 flex items-center justify-between"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle 248px at center, #16d9e3 0%, #30c7ec 47%, #46aef7 100%)",
+        }}
+      >
+        {/* Airline logo and name */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-full bg-white/20" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-32 bg-white/20" />
+            <Skeleton className="h-4 w-24 bg-white/20" />
+          </div>
+        </div>
+        {/* Price */}
+        <div className="text-right">
+          <Skeleton className="h-8 w-28 bg-white/20 mb-1" />
+          <Skeleton className="h-4 w-20 bg-white/20 ml-auto" />
+        </div>
+      </div>
+
+      {/* Card Content */}
+      <div className="p-6 space-y-6">
+        {/* Flight Timeline */}
+        <div className="grid grid-cols-[1fr,2fr,1fr] items-center gap-4">
+          {/* Departure */}
+          <div>
+            <Skeleton className="h-8 w-24 mb-2" />
+            <Skeleton className="h-6 w-16 mb-2" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+
+          {/* Flight Path */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-full flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-zinc-300" />
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-zinc-300 to-zinc-200" />
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-zinc-200 to-zinc-300" />
+              <div className="h-2 w-2 rounded-full bg-zinc-300" />
+            </div>
+            <Skeleton className="h-4 w-32" />
+          </div>
+
+          {/* Arrival */}
+          <div className="text-right">
+            <Skeleton className="h-8 w-24 ml-auto mb-2" />
+            <Skeleton className="h-6 w-16 ml-auto mb-2" />
+            <Skeleton className="h-4 w-28 ml-auto" />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-col gap-2 pt-4 border-t">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <Skeleton className="h-9 w-28" /> {/* Select Flight button */}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
 
@@ -302,6 +408,10 @@ export default function FlightCard(props: FlightCardProps) {
     return `Route: ${props.origin} → ${props.destination}`;
   };
 
+  if (props.isLoading) {
+    return <FlightCardSkeleton />;
+  }
+
   return (
     <Card className="overflow-hidden">
       {/* Header with custom radial gradient background */}
@@ -315,25 +425,10 @@ export default function FlightCard(props: FlightCardProps) {
         <div className="flex items-center justify-between text-white">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-              {props.airlineCode ? (
-                <div className="relative">
-                  <img
-                    src={`https://content.airhex.com/content/logos/airlines_${props.airlineCode}_200_200_s.png`}
-                    alt={`${props.airline} logo`}
-                    className="h-[100%] w-[100%] object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.parentElement
-                        ?.querySelector(".fallback-icon")
-                        ?.classList.remove("hidden");
-                    }}
-                  />
-                  <Plane className="h-6 w-6 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
-                </div>
-              ) : (
-                <Plane className="h-6 w-6 text-blue-500" />
-              )}
+              <AirlineLogo
+                airlineCode={props.airlineCode}
+                airline={props.airline}
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -511,21 +606,11 @@ export default function FlightCard(props: FlightCardProps) {
                           <div className="flex items-center justify-between text-white">
                             <div className="flex items-center gap-2">
                               <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-                                <div className="relative">
-                                  <img
-                                    src={`https://content.airhex.com/content/logos/airlines_${segment.airlineCode}_200_200_s.png`}
-                                    alt={`${segment.airline} logo`}
-                                    className="h-[100%] w-[100%] object-contain"
-                                    onError={(e) => {
-                                      e.currentTarget.onerror = null;
-                                      e.currentTarget.style.display = "none";
-                                      e.currentTarget.parentElement
-                                        ?.querySelector(".fallback-icon")
-                                        ?.classList.remove("hidden");
-                                    }}
-                                  />
-                                  <Plane className="h-4 w-4 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
-                                </div>
+                                <AirlineLogo
+                                  airlineCode={segment.airlineCode}
+                                  airline={segment.airline}
+                                  size={32}
+                                />
                               </div>
                               <div>
                                 <span className="font-medium text-white">
@@ -672,21 +757,11 @@ export default function FlightCard(props: FlightCardProps) {
                         <div className="flex items-center justify-between text-white">
                           <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-                              <div className="relative">
-                                <img
-                                  src={`https://content.airhex.com/content/logos/airlines_${props.airlineCode}_200_200_s.png`}
-                                  alt={`${props.airline} logo`}
-                                  className="h-[100%] w-[100%] object-contain"
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null;
-                                    e.currentTarget.style.display = "none";
-                                    e.currentTarget.parentElement
-                                      ?.querySelector(".fallback-icon")
-                                      ?.classList.remove("hidden");
-                                  }}
-                                />
-                                <Plane className="h-4 w-4 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
-                              </div>
+                              <AirlineLogo
+                                airlineCode={props.airlineCode}
+                                airline={props.airline}
+                                size={32}
+                              />
                             </div>
                             <div>
                               <span className="font-medium text-white">
