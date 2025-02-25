@@ -76,6 +76,7 @@ model Booking {
   updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   insurance     Insurance?
+  passengers    Passenger[]
 }
 
 model Insurance {
@@ -111,5 +112,39 @@ model PasswordReset {
 
   @@index([token])
   @@index([userId])
+}
+
+enum PassengerType {
+  ADULT
+  CHILD
+  INFANT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Passenger {
+  id              String        @id @default(cuid())
+  bookingId       String
+  passengerType   PassengerType
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  passportNumber  String?
+  nationality     String?
+  accompaniedBy   String?       // Reference to adult passenger ID
+  mealPreference  String?
+  seatPreference  String?
+  specialRequests String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
 }
 
