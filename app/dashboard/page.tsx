@@ -243,7 +243,7 @@ const FlightStatus = ({ flight }: { flight: any }) => {
               animate={{ opacity: 1 }}
               className="mt-6 sm:mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-800"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 sm:p-4 rounded-lg">
                   <div className="flex items-center gap-2">
                     <MountainSnow className="h-4 w-4 text-muted-foreground" />
