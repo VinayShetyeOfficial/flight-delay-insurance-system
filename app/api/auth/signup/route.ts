@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
       console.log("Generating OTP...");
       const otp = generateOTP();
-      const expiryTime = new Date(Date.now() + 60 * 1000); // 1 minute
+      const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       console.log("Hashing password...");
       const hashedPassword = await bcrypt.hash(password, 12);
