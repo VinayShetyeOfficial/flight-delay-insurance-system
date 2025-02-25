@@ -42,11 +42,11 @@ import { cn } from "@/lib/utils";
 
 const statusColors: Record<string, { color: string; icon: React.ReactNode }> = {
   active: {
-    color: "bg-green-500/10 text-green-500 border-green-500/20",
+    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
     icon: <Plane className="h-4 w-4" />,
   },
   scheduled: {
-    color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
     icon: <Calendar className="h-4 w-4" />,
   },
   landed: {
@@ -64,6 +64,14 @@ const statusColors: Record<string, { color: string; icon: React.ReactNode }> = {
 };
 
 const FlightStatus = ({ flight }: { flight: any }) => {
+  const status = flight.flight_status || "unknown";
+  const statusColor =
+    statusColors[status]?.color ||
+    "bg-gray-500/10 text-gray-500 border-gray-500/20";
+  const StatusIcon = statusColors[status]?.icon || (
+    <AlertCircle className="h-4 w-4" />
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -111,14 +119,10 @@ const FlightStatus = ({ flight }: { flight: any }) => {
           <div className="mt-4">
             <Badge
               variant="outline"
-              className={cn(
-                "px-3 py-2 capitalize",
-                flight.flight_status === "landed" &&
-                  "bg-green-50 text-green-700 border-green-200"
-              )}
+              className={cn("px-3 py-2 capitalize", statusColor)}
             >
-              <CheckCircle className="w-4 h-4 mr-1" />
-              {flight.flight_status || "Unknown"}
+              {StatusIcon}
+              <span className="ml-1">{status}</span>
             </Badge>
           </div>
         </div>
