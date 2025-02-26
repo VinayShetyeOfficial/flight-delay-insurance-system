@@ -3,29 +3,50 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
+// This custom Select component checks its children. If any child is a Radix sub-component
+// (e.g. SelectTrigger, SelectContent, SelectItem), it renders a Radix select; otherwise, it falls back to a native <select>.
 const Select = React.forwardRef<
-  HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, children, ...props }, ref) => {
+  HTMLSelectElement | React.ElementRef<typeof SelectPrimitive.Root>,
+  React.SelectHTMLAttributes<HTMLSelectElement> & { children: React.ReactNode }
+>(({ children, className, ...rest }, ref) => {
+  const hasRadixChildren = React.Children.toArray(children).some((child) => {
+    return (
+      React.isValidElement(child) &&
+      child.type &&
+      (child.type.displayName === "SelectTrigger" ||
+        child.type.displayName === "SelectContent" ||
+        child.type.displayName === "SelectItem")
+    );
+  });
+
+  if (hasRadixChildren) {
+    // When using Radix subcomponents, render the Radix select (which provides the needed context).
+    return (
+      <SelectPrimitive.Root ref={ref as any} {...rest}>
+        {children}
+      </SelectPrimitive.Root>
+    );
+  }
+
+  // Otherwise, render a native <select> element with your custom styling.
   return (
     <select
-      ref={ref}
+      ref={ref as React.Ref<HTMLSelectElement>}
       className={cn(
-        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
-      {...props}
+      {...rest}
     >
       {children}
     </select>
   );
 });
-
 Select.displayName = "Select";
 
+// The remaining Radix subcomponents remain unchanged:
 const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = SelectPrimitive.Value;
@@ -87,7 +108,9 @@ SelectScrollDownButton.displayName =
 
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
+    position?: "popper";
+  }
 >(({ className, children, position = "popper", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
@@ -146,7 +169,6 @@ const SelectItem = React.forwardRef<
         <Check className="h-4 w-4" />
       </SelectPrimitive.ItemIndicator>
     </span>
-
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));
