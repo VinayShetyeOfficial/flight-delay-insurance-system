@@ -7,6 +7,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,27 +26,14 @@ import {
   Loader2,
   ArrowLeft,
   LayoutDashboard,
-  Package,
-  ClipboardCheck,
-  CreditCard,
 } from "lucide-react";
 import { addDays } from "date-fns";
-import { cn } from "@/lib/utils";
 
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { LocationSuggestions } from "@/components/location-suggestions";
 import { FlightCardSkeleton } from "@/components/flight-card";
 import { FlightFilters, FilterOptions } from "@/components/flight-filters";
-
-// Import default select components (using Radix UI)
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 
 // Updated Zod Schema with better validation messages
 const bookingSchema = z
@@ -144,30 +132,7 @@ const insuranceOptions = [
   },
 ];
 
-const steps = [
-  {
-    id: "passengers",
-    name: "Passenger Info",
-    icon: Users,
-  },
-  {
-    id: "addons",
-    name: "Add-ons",
-    icon: Package,
-  },
-  {
-    id: "review",
-    name: "Review",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "payment",
-    name: "Payment",
-    icon: CreditCard,
-  },
-];
-
-export default function BookingPage() {
+const BookingPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -196,7 +161,6 @@ export default function BookingPage() {
     useState(true);
   const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
   const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
 
   const {
     register,
@@ -455,7 +419,7 @@ export default function BookingPage() {
     return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
   };
 
-  // Update filtered flights when the main flights array changes
+  // Add this useEffect to update filtered flights when main flights array changes
   useEffect(() => {
     setFilteredFlights(flights);
     const airlines = Array.from(
@@ -464,7 +428,7 @@ export default function BookingPage() {
     setUniqueAirlines(airlines);
   }, [flights]);
 
-  // Handle filter changes
+  // Add this function to handle filter changes
   const handleFilterChange = (filters: FilterOptions) => {
     let filtered = [...flights];
 
@@ -803,31 +767,14 @@ export default function BookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Class</Label>
-                  <Controller
-                    name="class"
-                    control={control}
-                    defaultValue="ECONOMY"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <Select
-                          defaultValue={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Class" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ECONOMY">Economy</SelectItem>
-                            <SelectItem value="PREMIUM_ECONOMY">
-                              Premium Economy
-                            </SelectItem>
-                            <SelectItem value="BUSINESS">Business</SelectItem>
-                            <SelectItem value="FIRST">First</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
+                  <div className="relative">
+                    <Select {...register("class")} defaultValue="ECONOMY">
+                      <option value="ECONOMY">Economy</option>
+                      <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                      <option value="BUSINESS">Business</option>
+                      <option value="FIRST">First</option>
+                    </Select>
+                  </div>
                   {errors.class && (touchedFields.class || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
@@ -967,4 +914,6 @@ export default function BookingPage() {
       </div>
     </div>
   );
-}
+};
+
+export default BookingPage;
