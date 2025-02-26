@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -53,21 +53,30 @@ const steps = [
 ] as const;
 
 export default function BookingPage() {
-  const [currentStep, setCurrentStep] = useState(0);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Calculate progress percentage
+  // Read passenger counts from query parameters
+  const adults = parseInt(searchParams.get("adults") || "1", 10);
+  const children = parseInt(searchParams.get("children") || "0", 10);
+  const infants = parseInt(searchParams.get("infants") || "0", 10);
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isCurrentStepValid, setIsCurrentStepValid] = useState(true);
   const progress = (currentStep / (steps.length - 1)) * 100;
 
   const goToNextStep = () => {
+    if (currentStep === 0 && !isCurrentStepValid) return;
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
+      setIsCurrentStepValid(true);
     }
   };
 
   const goToPreviousStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+      setIsCurrentStepValid(true);
     }
   };
 
@@ -86,7 +95,7 @@ export default function BookingPage() {
           </p>
         </div>
 
-        {/* Progress Bar and Steps - Updated with icons */}
+        {/* Progress Bar and Steps */}
         <div className="mb-8">
           <Progress value={progress} className="h-2 bg-primary/10" />
           <div className="mt-4 grid grid-cols-4 gap-4">
@@ -131,7 +140,16 @@ export default function BookingPage() {
         {/* Content */}
         <Card className="p-6">
           <div className="mb-8">
-            <CurrentStepComponent />
+            {currentStep === 0 ? (
+              <CurrentStepComponent
+                adults={adults}
+                children={children}
+                infants={infants}
+                onValidityChange={setIsCurrentStepValid}
+              />
+            ) : (
+              <CurrentStepComponent />
+            )}
           </div>
 
           {/* Navigation Buttons */}
@@ -145,7 +163,10 @@ export default function BookingPage() {
               <ChevronLeft className="mr-2 h-4 w-4" />
               {currentStep === 0 ? "Back to Flights" : "Previous Step"}
             </Button>
-            <Button onClick={goToNextStep}>
+            <Button
+              onClick={goToNextStep}
+              disabled={currentStep === 0 && !isCurrentStepValid}
+            >
               {currentStep === steps.length - 1
                 ? "Complete Booking"
                 : "Next Step"}
