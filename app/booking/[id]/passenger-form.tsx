@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,92 +20,123 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+// Import your booking store (adjust the path as necessary)
+import { useBookingStore } from "@/store/bookingStore";
 
-// Schema for a single passenger
+// Add the PassengerFormProps interface
+interface PassengerFormProps {
+  adults: number;
+  children: number;
+  infants: number;
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+// Update the schema to make optional fields explicitly optional
 const passengerSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
-  dateOfBirth: z.date({
-    required_error: "Date of birth is required",
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"], {
+    required_error: "Please select a gender",
   }),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]),
-  passportNumber: z.string().optional(),
-  nationality: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  specialRequests: z.string().optional(),
+  // Make these fields explicitly optional
+  passportNumber: z.string().optional().or(z.literal("")),
+  nationality: z.string().optional().or(z.literal("")),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  phone: z.string().optional().or(z.literal("")),
+  specialRequests: z.string().optional().or(z.literal("")),
 });
 
-export default function PassengerForm() {
-  // This would come from your flight booking context/state
-  const [passengers, setPassengers] = useState({
-    adults: 2,
-    children: 1,
-    infants: 1,
+//
+// Schema for the entire form
+//
+const formSchema = z.object({
+  passengers: z.array(passengerSchema),
+});
+
+export default function PassengerForm({
+  adults = 1,
+  children = 0,
+  infants = 0,
+  onValidityChange,
+}: PassengerFormProps) {
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      passengers: Array(adults + children + infants).fill({
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        gender: undefined,
+        passportNumber: "",
+        nationality: "",
+        email: "",
+        phone: "",
+        specialRequests: "",
+      }),
+    },
+    mode: "onChange",
   });
 
-  const form = useForm({
-    resolver: zodResolver(
-      z.object({
-        passengers: z.array(passengerSchema),
-      })
-    ),
-  });
+  // Update the validity check to use isDirty as well
+  useEffect(() => {
+    const isValid = form.formState.isValid && form.formState.isDirty;
+    onValidityChange?.(isValid);
+  }, [form.formState.isValid, form.formState.isDirty, onValidityChange]);
 
   const renderPassengerForms = () => {
-    const forms = [];
-    let passengerIndex = 0;
+    const elements = [];
+    let index = 0;
 
-    // Add adult passenger forms
-    for (let i = 0; i < passengers.adults; i++) {
-      forms.push(
+    // Render Adult sections
+    for (let i = 0; i < adults; i++) {
+      elements.push(
         <PassengerFormSection
           key={`adult-${i}`}
-          index={passengerIndex}
+          index={index}
           type="ADULT"
           number={i + 1}
           form={form}
         />
       );
-      passengerIndex++;
+      index++;
     }
 
-    // Add child passenger forms
-    for (let i = 0; i < passengers.children; i++) {
-      forms.push(
+    // Render Child sections
+    for (let i = 0; i < children; i++) {
+      elements.push(
         <PassengerFormSection
           key={`child-${i}`}
-          index={passengerIndex}
+          index={index}
           type="CHILD"
           number={i + 1}
           form={form}
         />
       );
-      passengerIndex++;
+      index++;
     }
 
-    // Add infant passenger forms
-    for (let i = 0; i < passengers.infants; i++) {
-      forms.push(
+    // Render Infant sections
+    for (let i = 0; i < infants; i++) {
+      elements.push(
         <PassengerFormSection
           key={`infant-${i}`}
-          index={passengerIndex}
+          index={index}
           type="INFANT"
           number={i + 1}
           form={form}
         />
       );
-      passengerIndex++;
+      index++;
     }
 
-    return forms;
+    return elements;
   };
 
   return (
@@ -119,12 +150,12 @@ export default function PassengerForm() {
         </p>
       </div>
 
+      {/* The Form component provides the react-hook-form context.
+          Note: We do not include an extra nested <form> element so that the context is preserved. */}
       <Form {...form}>
-        <form className="space-y-4">
-          <Accordion type="single" collapsible className="w-full">
-            {renderPassengerForms()}
-          </Accordion>
-        </form>
+        <Accordion type="single" collapsible className="w-full">
+          {renderPassengerForms()}
+        </Accordion>
       </Form>
     </div>
   );
@@ -139,21 +170,18 @@ function PassengerFormSection({
   index: number;
   type: "ADULT" | "CHILD" | "INFANT";
   number: number;
-  form: any;
+  form: ReturnType<typeof useForm>;
 }) {
-  // Update the type labels with age ranges
-  const getPassengerLabel = (type: string, number: number) => {
-    switch (type) {
-      case "ADULT":
-        return `Adult ${number}`;
-      case "CHILD":
-        return `Child (2-12 years) ${number}`;
-      case "INFANT":
-        return `Infant (0-2 years) ${number}`;
-      default:
-        return "";
-    }
+  const getPassengerLabel = (t: string, n: number) => {
+    if (t === "ADULT") return `Adult ${n}`;
+    if (t === "CHILD") return `Child (2-12 years) ${n}`;
+    if (t === "INFANT") return `Infant (0-2 years) ${n}`;
+    return `Passenger ${n}`;
   };
+
+  // Helper to add required indicator or optional text
+  const getLabel = (field: string, required: boolean) =>
+    required ? `${field} *` : `${field} (optional)`;
 
   return (
     <AccordionItem value={`passenger-${index}`}>
@@ -175,7 +203,7 @@ function PassengerFormSection({
               name={`passengers.${index}.firstName`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>First Name</FormLabel>
+                  <FormLabel>{getLabel("First Name", true)}</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter first name" {...field} />
                   </FormControl>
@@ -188,7 +216,7 @@ function PassengerFormSection({
               name={`passengers.${index}.lastName`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name</FormLabel>
+                  <FormLabel>{getLabel("Last Name", true)}</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter last name" {...field} />
                   </FormControl>
@@ -204,12 +232,12 @@ function PassengerFormSection({
               name={`passengers.${index}.dateOfBirth`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Date of Birth</FormLabel>
+                  <FormLabel>{getLabel("Date of Birth", true)}</FormLabel>
                   <FormControl>
-                    <DatePicker
-                      date={field.value}
-                      setDate={field.onChange}
-                      placeholder="Select date"
+                    <Input
+                      type="date"
+                      {...field}
+                      max={new Date().toISOString().split("T")[0]} // Prevents future dates
                     />
                   </FormControl>
                   <FormMessage />
@@ -221,7 +249,7 @@ function PassengerFormSection({
               name={`passengers.${index}.gender`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gender</FormLabel>
+                  <FormLabel>{getLabel("Gender", true)}</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
@@ -250,7 +278,7 @@ function PassengerFormSection({
                 name={`passengers.${index}.passportNumber`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Passport Number</FormLabel>
+                    <FormLabel>{getLabel("Passport Number", false)}</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter passport number" {...field} />
                     </FormControl>
@@ -263,7 +291,7 @@ function PassengerFormSection({
                 name={`passengers.${index}.nationality`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nationality</FormLabel>
+                    <FormLabel>{getLabel("Nationality", false)}</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter nationality" {...field} />
                     </FormControl>
@@ -280,7 +308,7 @@ function PassengerFormSection({
               name={`passengers.${index}.email`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{getLabel("Email", false)}</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter email address" {...field} />
                   </FormControl>
@@ -293,7 +321,7 @@ function PassengerFormSection({
               name={`passengers.${index}.phone`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel>{getLabel("Phone Number", false)}</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter phone number" {...field} />
                   </FormControl>
@@ -308,7 +336,7 @@ function PassengerFormSection({
             name={`passengers.${index}.specialRequests`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Special Requests</FormLabel>
+                <FormLabel>{getLabel("Special Requests", false)}</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter any special requests" {...field} />
                 </FormControl>
