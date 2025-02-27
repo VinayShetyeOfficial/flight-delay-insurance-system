@@ -99,6 +99,7 @@ export default function AddOns() {
                   <Switch
                     checked={selectedAddOns.includes(addon.id)}
                     onCheckedChange={() => toggleAddOn(addon.id)}
+                    className="shadow-[rgba(50,_50,_93,_0.25)_0px_30px_60px_-12px_inset,_rgba(0,_0,_0,_0.3)_0px_18px_36px_-18px_inset]"
                   />
                 </div>
               </CardContent>
