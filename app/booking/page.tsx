@@ -221,6 +221,12 @@ export default function BookingPage() {
   const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
   const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  // Add state for passenger counts
+  const [passengerCounts, setPassengerCounts] = useState({
+    adults: 1,
+    children: 0,
+    infants: 0,
+  });
 
   const {
     register,
@@ -477,7 +483,14 @@ export default function BookingPage() {
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
-    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
+    return (
+      <FlightCard
+        key={flightKey}
+        searchId={searchId}
+        {...flight}
+        passengerCounts={passengerCounts}
+      />
+    );
   };
 
   // Update filtered flights when the main flights array changes
@@ -570,25 +583,19 @@ export default function BookingPage() {
   const handleAdultsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     setValue("adults", value);
-
-    // Validate against current children and infants
-    validatePassengerCounts(value, watch("children"), watch("infants"));
+    setPassengerCounts((prev) => ({ ...prev, adults: value }));
   };
 
   const handleChildrenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     setValue("children", value);
-
-    // Validate against current adults and infants
-    validatePassengerCounts(watch("adults"), value, watch("infants"));
+    setPassengerCounts((prev) => ({ ...prev, children: value }));
   };
 
   const handleInfantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     setValue("infants", value);
-
-    // Validate against current adults and children
-    validatePassengerCounts(watch("adults"), watch("children"), value);
+    setPassengerCounts((prev) => ({ ...prev, infants: value }));
   };
 
   return (
@@ -813,7 +820,7 @@ export default function BookingPage() {
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label>Adults (12+ years)*</Label>
+                  <Label>Adults (12+ years)</Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
