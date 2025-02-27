@@ -77,11 +77,6 @@ interface FlightCardProps {
   cabinClass?: string;
   isLoading?: boolean;
   id: string; // Add this to identify the selected flight
-  passengerCounts?: {
-    adults: number;
-    children: number;
-    infants: number;
-  };
 }
 
 // Debug function for direct flights.
@@ -417,19 +412,7 @@ export default function FlightCard(props: FlightCardProps) {
   };
 
   const handleSelectFlight = () => {
-    if (props.onSelect) {
-      props.onSelect();
-    }
-
-    // Add passenger counts to the URL when navigating
-    const {
-      adults = 1,
-      children = 0,
-      infants = 0,
-    } = props.passengerCounts || {};
-    router.push(
-      `/booking/${props.id}?adults=${adults}&children=${children}&infants=${infants}`
-    );
+    router.push(`/booking/${props.id}`);
   };
 
   if (props.isLoading) {
@@ -543,7 +526,10 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={handleSelectFlight} className="w-full md:w-auto">
+            <Button
+              onClick={handleSelectFlight}
+              className="w-full md:w-auto px-8"
+            >
               Select Flight
             </Button>
           </div>
