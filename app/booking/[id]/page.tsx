@@ -107,10 +107,11 @@ export default function BookingPage() {
                   className={cn(
                     "flex flex-col items-center text-center p-4 rounded-lg transition-colors",
                     currentStep === index
-                      ? "bg-primary/5"
-                      : index < currentStep
-                      ? "bg-muted"
-                      : "bg-background"
+                      ? "bg-[#e7e7e9]" // Active step
+                      : // ? "bg-[#e7e7e9]" // Active step
+                      index < currentStep
+                      ? "bg-[#e7e7e9]" // Completed steps
+                      : "bg-background" // Upcoming steps
                   )}
                 >
                   <div
