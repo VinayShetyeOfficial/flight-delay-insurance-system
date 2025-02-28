@@ -12,7 +12,7 @@ import {
   Coffee,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration } from "@/lib/utils";
+import { getCurrencySymbol, formatDuration, formatCurrency } from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -459,8 +459,9 @@ export default function FlightCard(props: FlightCardProps) {
           ],
       isLayover: props.isLayover,
       layoverDuration: props.layoverTime || 0,
-      price: props.price,
-      currency: props.currency,
+      price: Number(props.price || 0),
+      totalPrice: Number(props.totalPrice || props.price || 0),
+      currency: props.currency || "USD",
       cabinClass: props.cabinClass || "ECONOMY",
       totalDuration: props.duration,
       locationDetails: locationDetails,
@@ -527,11 +528,7 @@ export default function FlightCard(props: FlightCardProps) {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">
-              {getCurrencySymbol(props.currency)}
-              {props.price.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(Number(props.price || 0), props.currency)}
             </p>
             <p className="text-sm text-white/80">Ticket Price</p>
           </div>
