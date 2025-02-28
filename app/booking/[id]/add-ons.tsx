@@ -1,76 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Luggage, Utensils, Wifi, Headphones, Car, Sofa } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useFlightStore } from "@/store/flightStore";
-
-// Base prices in USD
-const addOns = [
-  {
-    id: "extra-baggage",
-    name: "Extra Baggage",
-    description: "Add an extra 23kg to your luggage allowance",
-    basePrice: 50,
-    icon: Luggage,
-  },
-  {
-    id: "gourmet-meal",
-    name: "Gourmet Meal",
-    description: "Enjoy a premium dining experience at 30,000 feet",
-    basePrice: 25,
-    icon: Utensils,
-  },
-  {
-    id: "wifi-access",
-    name: "Wi-Fi Access",
-    description: "Stay connected throughout your flight",
-    basePrice: 15,
-    icon: Wifi,
-  },
-  {
-    id: "entertainment",
-    name: "Entertainment Package",
-    description: "Access to premium movies, TV shows, and games",
-    basePrice: 20,
-    icon: Headphones,
-  },
-  {
-    id: "airport-transfer",
-    name: "Airport Transfer",
-    description: "Comfortable ride from the airport to your hotel",
-    basePrice: 40,
-    icon: Car,
-  },
-  {
-    id: "lounge-access",
-    name: "Lounge Access",
-    description: "Relax in our premium airport lounge before your flight",
-    basePrice: 35,
-    icon: Sofa,
-  },
-];
-
-// Currency conversion rates (as of a recent date)
-const CURRENCY_RATES = {
-  USD: 1, // Base currency
-  EUR: 0.92, // Euro
-  GBP: 0.79, // British Pound
-  JPY: 150.41, // Japanese Yen
-  AUD: 1.52, // Australian Dollar
-  CAD: 1.35, // Canadian Dollar
-  CHF: 0.88, // Swiss Franc
-  CNY: 7.19, // Chinese Yuan
-  INR: 83.12, // Indian Rupee
-  AED: 3.67, // UAE Dirham
-};
+import { useBookingStore } from "@/store/bookingStore";
+import { addOns, CURRENCY_RATES } from "@/lib/constants";
 
 export default function AddOns() {
-  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const selectedFlight = useFlightStore((state) => state.selectedFlight);
+  const { updateAddOns, calculateTotalPrice, temporaryBooking } =
+    useBookingStore();
+
+  // Initialize selectedAddOns from the store's state
+  const [selectedAddOns, setSelectedAddOns] = useState<string[]>(
+    temporaryBooking.selectedAddOns || []
+  );
+
   const currency = selectedFlight?.currency || "USD";
 
   const convertPrice = (basePrice: number, targetCurrency: string): number => {
@@ -79,10 +27,32 @@ export default function AddOns() {
     return Math.round(basePrice * rate);
   };
 
+  // Initialize base price and sync with store when component mounts
+  useEffect(() => {
+    if (selectedFlight) {
+      useBookingStore
+        .getState()
+        .setBasePrice(
+          selectedFlight.totalPrice || selectedFlight.price,
+          selectedFlight.currency
+        );
+      calculateTotalPrice();
+    }
+  }, [selectedFlight]);
+
+  // Keep local state in sync with store state
+  useEffect(() => {
+    setSelectedAddOns(temporaryBooking.selectedAddOns);
+  }, [temporaryBooking.selectedAddOns]);
+
   const toggleAddOn = (id: string) => {
-    setSelectedAddOns((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    const newSelectedAddOns = selectedAddOns.includes(id)
+      ? selectedAddOns.filter((item) => item !== id)
+      : [...selectedAddOns, id];
+
+    setSelectedAddOns(newSelectedAddOns);
+    updateAddOns(newSelectedAddOns);
+    calculateTotalPrice();
   };
 
   return (
