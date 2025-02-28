@@ -14,7 +14,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { create } from "zustand";
 
 import PassengerForm from "./passenger-form";
 import AddOns from "./add-ons";
@@ -52,17 +51,6 @@ const steps = [
     component: Payment,
   },
 ] as const;
-
-// Create a store to hold flight details
-interface FlightStore {
-  selectedFlight: any; // Use the FlightCardProps type
-  setSelectedFlight: (flight: any) => void;
-}
-
-export const useFlightStore = create<FlightStore>((set) => ({
-  selectedFlight: null,
-  setSelectedFlight: (flight) => set({ selectedFlight: flight }),
-}));
 
 export default function BookingPage() {
   const router = useRouter();
