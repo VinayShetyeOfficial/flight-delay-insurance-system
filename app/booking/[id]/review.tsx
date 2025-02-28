@@ -14,6 +14,7 @@ import {
   Power,
   Clock,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 // Add the formatDurationHM function
 const formatDurationHM = (minutes: number) => {
@@ -37,7 +38,7 @@ const formatDurationHM = (minutes: number) => {
 };
 
 export default function Review() {
-  const selectedFlight = useFlightStore((state) => state.selectedFlight);
+  const { selectedFlight } = useFlightStore();
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -98,8 +99,13 @@ export default function Review() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-muted-foreground">Ticket Price</div>
-          <div className="text-3xl font-bold">${selectedFlight.price}</div>
+          <div className="text-sm text-muted-foreground">Total Price</div>
+          <div className="text-2xl font-bold">
+            {formatCurrency(
+              Number(selectedFlight.totalPrice || selectedFlight.price || 0),
+              selectedFlight.currency
+            )}
+          </div>
         </div>
       </div>
 
