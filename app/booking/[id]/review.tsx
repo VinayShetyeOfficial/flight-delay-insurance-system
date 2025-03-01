@@ -1,7 +1,6 @@
 "use client";
 
 import { useFlightStore } from "@/store/flightStore";
-import { useBookingStore } from "@/store/bookingStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,6 @@ import {
   Power,
   Clock,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 
 // Add the formatDurationHM function
 const formatDurationHM = (minutes: number) => {
@@ -39,8 +37,7 @@ const formatDurationHM = (minutes: number) => {
 };
 
 export default function Review() {
-  const { selectedFlight } = useFlightStore();
-  const { temporaryBooking } = useBookingStore();
+  const selectedFlight = useFlightStore((state) => state.selectedFlight);
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -101,16 +98,8 @@ export default function Review() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-muted-foreground">Total Price</div>
-          <div className="text-2xl font-bold">
-            {formatCurrency(
-              temporaryBooking.totalPrice ||
-                selectedFlight.totalPrice ||
-                selectedFlight.price ||
-                0,
-              selectedFlight.currency
-            )}
-          </div>
+          <div className="text-sm text-muted-foreground">Ticket Price</div>
+          <div className="text-3xl font-bold">${selectedFlight.price}</div>
         </div>
       </div>
 
