@@ -66,73 +66,29 @@ export default function PassengerForm({
   infants = 0,
   onValidityChange,
 }: PassengerFormProps) {
-  const { updatePassengers, temporaryBooking } = useBookingStore();
-
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      passengers:
-        temporaryBooking.passengers.length > 0
-          ? temporaryBooking.passengers
-          : Array(adults + children + infants).fill({
-              firstName: "",
-              lastName: "",
-              dateOfBirth: "",
-              gender: undefined,
-              passportNumber: "",
-              nationality: "",
-              email: "",
-              phone: "",
-              specialRequests: "",
-            }),
+      passengers: Array(adults + children + infants).fill({
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        gender: undefined,
+        passportNumber: "",
+        nationality: "",
+        email: "",
+        phone: "",
+        specialRequests: "",
+      }),
     },
-    mode: "all",
+    mode: "onChange",
   });
 
-  // Update store when form values change
+  // Update the validity check to use isDirty as well
   useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (value.passengers) {
-        const typedPassengers = value.passengers.map((passenger, index) => ({
-          ...passenger,
-          type:
-            index < adults
-              ? "ADULT"
-              : index < adults + children
-              ? "CHILD"
-              : "INFANT",
-        }));
-        updatePassengers(typedPassengers);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [form, updatePassengers, adults, children]);
-
-  // Trigger validation on mount and when stored data changes
-  useEffect(() => {
-    if (temporaryBooking.passengers.length > 0) {
-      form.trigger().then((isValid) => {
-        onValidityChange?.(isValid);
-      });
-    }
-  }, [form, onValidityChange, temporaryBooking.passengers]);
-
-  // Validity check effect
-  useEffect(() => {
-    const validateForm = async () => {
-      const result = await form.trigger();
-      onValidityChange?.(result);
-    };
-
-    validateForm();
-
-    const subscription = form.watch(() => {
-      validateForm();
-    });
-
-    return () => subscription.unsubscribe();
-  }, [form, onValidityChange]);
+    const isValid = form.formState.isValid && form.formState.isDirty;
+    onValidityChange?.(isValid);
+  }, [form.formState.isValid, form.formState.isDirty, onValidityChange]);
 
   const renderPassengerForms = () => {
     const elements = [];
