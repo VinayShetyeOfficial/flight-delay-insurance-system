@@ -1,6 +1,7 @@
 "use client";
 
 import { useFlightStore } from "@/store/flightStore";
+import { useBookingStore } from "@/store/bookingStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ const formatDurationHM = (minutes: number) => {
 
 export default function Review() {
   const { selectedFlight } = useFlightStore();
+  const { temporaryBooking } = useBookingStore();
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -102,7 +104,10 @@ export default function Review() {
           <div className="text-sm text-muted-foreground">Total Price</div>
           <div className="text-2xl font-bold">
             {formatCurrency(
-              Number(selectedFlight.totalPrice || selectedFlight.price || 0),
+              temporaryBooking.totalPrice ||
+                selectedFlight.totalPrice ||
+                selectedFlight.price ||
+                0,
               selectedFlight.currency
             )}
           </div>
