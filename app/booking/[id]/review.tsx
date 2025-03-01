@@ -11,9 +11,12 @@ import {
   Package,
   Luggage,
   Wifi,
-  UtensilsCrossed,
+  Utensils,
   Power,
   Clock,
+  UserRound,
+  User,
+  Baby,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -50,7 +53,7 @@ export default function Review() {
     { icon: <Wifi className="h-4 w-4" />, name: "In-flight Wi-Fi" },
     { icon: <Power className="h-4 w-4" />, name: "Power outlets" },
     {
-      icon: <UtensilsCrossed className="h-4 w-4" />,
+      icon: <Utensils className="h-4 w-4" />,
       name: "Complimentary meals",
     },
   ];
@@ -89,6 +92,19 @@ export default function Review() {
         )}
       </div>
     );
+  };
+
+  const getPassengerIcon = (type: string) => {
+    switch (type) {
+      case "ADULT":
+        return <UserRound className="h-4 w-4" />;
+      case "CHILD":
+        return <User className="h-4 w-4" />;
+      case "INFANT":
+        return <Baby className="h-4 w-4" />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -272,7 +288,7 @@ export default function Review() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -281,23 +297,23 @@ export default function Review() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {!selectedFlight.passengers ||
-              selectedFlight.passengers.length === 0 ? (
-                <div className="text-muted-foreground">
-                  Passenger details will be added in the next step
-                </div>
-              ) : (
-                selectedFlight.passengers.map((passenger, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center"
-                  >
-                    <span className="font-medium">{passenger.name}</span>
-                    <Badge variant="secondary">{passenger.type}</Badge>
+            <div className="space-y-4">
+              {temporaryBooking.passengers.map((passenger, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {getPassengerIcon(passenger.type)}
+                    <span className="font-medium">
+                      {passenger.firstName} {passenger.lastName}
+                    </span>
                   </div>
-                ))
-              )}
+                  <Badge
+                    variant="secondary"
+                    className="min-w-[80px] text-center justify-center"
+                  >
+                    {passenger.type}
+                  </Badge>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
