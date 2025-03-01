@@ -12,7 +12,7 @@ import {
   Coffee,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration, formatCurrency } from "@/lib/utils";
+import { getCurrencySymbol, formatDuration } from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -459,9 +459,8 @@ export default function FlightCard(props: FlightCardProps) {
           ],
       isLayover: props.isLayover,
       layoverDuration: props.layoverTime || 0,
-      price: Number(props.price || 0),
-      totalPrice: Number(props.totalPrice || props.price || 0),
-      currency: props.currency || "USD",
+      price: props.price,
+      currency: props.currency,
       cabinClass: props.cabinClass || "ECONOMY",
       totalDuration: props.duration,
       locationDetails: locationDetails,
@@ -528,7 +527,11 @@ export default function FlightCard(props: FlightCardProps) {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">
-              {formatCurrency(Number(props.price || 0), props.currency)}
+              {getCurrencySymbol(props.currency)}
+              {props.price.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <p className="text-sm text-white/80">Ticket Price</p>
           </div>
@@ -626,7 +629,8 @@ export default function FlightCard(props: FlightCardProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} → {props.destination}
+                        {props.origin} ({props.originCity}) →{" "}
+                        {props.destination} ({props.destinationCity})
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
