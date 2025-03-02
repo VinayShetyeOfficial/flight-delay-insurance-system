@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -14,7 +14,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { create } from "zustand";
 
 import PassengerForm from "./passenger-form";
 import AddOns from "./add-ons";
@@ -53,42 +52,22 @@ const steps = [
   },
 ] as const;
 
-// Create a store to hold flight details
-interface FlightStore {
-  selectedFlight: any; // Use the FlightCardProps type
-  setSelectedFlight: (flight: any) => void;
-}
-
-export const useFlightStore = create<FlightStore>((set) => ({
-  selectedFlight: null,
-  setSelectedFlight: (flight) => set({ selectedFlight: flight }),
-}));
-
 export default function BookingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Read passenger counts from query parameters
-  const adults = parseInt(searchParams.get("adults") || "1", 10);
-  const children = parseInt(searchParams.get("children") || "0", 10);
-  const infants = parseInt(searchParams.get("infants") || "0", 10);
-
   const [currentStep, setCurrentStep] = useState(0);
-  const [isCurrentStepValid, setIsCurrentStepValid] = useState(true);
+  const router = useRouter();
+
+  // Calculate progress percentage
   const progress = (currentStep / (steps.length - 1)) * 100;
 
   const goToNextStep = () => {
-    if (currentStep === 0 && !isCurrentStepValid) return;
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
-      setIsCurrentStepValid(true);
     }
   };
 
   const goToPreviousStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
-      setIsCurrentStepValid(true);
     }
   };
 
@@ -107,7 +86,7 @@ export default function BookingPage() {
           </p>
         </div>
 
-        {/* Progress Bar and Steps */}
+        {/* Progress Bar and Steps - Updated with icons */}
         <div className="mb-8">
           <Progress value={progress} className="h-2 bg-primary/10" />
           <div className="mt-4 grid grid-cols-4 gap-4">
@@ -119,11 +98,10 @@ export default function BookingPage() {
                   className={cn(
                     "flex flex-col items-center text-center p-4 rounded-lg transition-colors",
                     currentStep === index
-                      ? "bg-[#e7e7e9]" // Active step
-                      : // ? "bg-[#e7e7e9]" // Active step
-                      index < currentStep
-                      ? "bg-[#e7e7e9]" // Completed steps
-                      : "bg-background" // Upcoming steps
+                      ? "bg-primary/5"
+                      : index < currentStep
+                      ? "bg-muted"
+                      : "bg-background"
                   )}
                 >
                   <div
@@ -153,16 +131,7 @@ export default function BookingPage() {
         {/* Content */}
         <Card className="p-6">
           <div className="mb-8">
-            {currentStep === 0 ? (
-              <CurrentStepComponent
-                adults={adults}
-                children={children}
-                infants={infants}
-                onValidityChange={setIsCurrentStepValid}
-              />
-            ) : (
-              <CurrentStepComponent />
-            )}
+            <CurrentStepComponent />
           </div>
 
           {/* Navigation Buttons */}
@@ -176,10 +145,7 @@ export default function BookingPage() {
               <ChevronLeft className="mr-2 h-4 w-4" />
               {currentStep === 0 ? "Back to Flights" : "Previous Step"}
             </Button>
-            <Button
-              onClick={goToNextStep}
-              disabled={currentStep === 0 && !isCurrentStepValid}
-            >
+            <Button onClick={goToNextStep}>
               {currentStep === steps.length - 1
                 ? "Complete Booking"
                 : "Next Step"}
