@@ -60,23 +60,3 @@ export function generateOTP(length: number = 6): string {
   }
   return otp;
 }
-
-/**
- * Formats a number as currency with the appropriate symbol and thousands separators
- * @param amount Number to format
- * @param currency Currency code (e.g. 'USD', 'EUR')
- * @returns Formatted currency string (e.g. "$1,234.56")
- */
-export function formatCurrency(amount: number, currency: string): string {
-  const symbol = getCurrencySymbol(currency);
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    currencyDisplay: "narrowSymbol",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })
-    .format(amount)
-    .replace(currency, symbol);
-}
