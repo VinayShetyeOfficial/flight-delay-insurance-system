@@ -12,7 +12,7 @@ import {
   Coffee,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration, formatCurrency } from "@/lib/utils";
+import { getCurrencySymbol, formatDuration } from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -21,8 +21,6 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useFlightStore } from "@/store/flightStore";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -77,12 +75,6 @@ interface FlightCardProps {
   };
   cabinClass?: string;
   isLoading?: boolean;
-  id: string; // Add this to identify the selected flight
-  passengerCounts?: {
-    adults: number;
-    children: number;
-    infants: number;
-  };
 }
 
 // Debug function for direct flights.
@@ -325,7 +317,6 @@ export function FlightCardSkeleton() {
 
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
-  const router = useRouter();
 
   // Add these states in the component
   const [locationDetails, setLocationDetails] = useState<{
@@ -417,77 +408,6 @@ export default function FlightCard(props: FlightCardProps) {
     return `Route: ${props.origin} → ${props.destination}`;
   };
 
-  const handleSelect = () => {
-    const flightData = {
-      segments: props.isLayover
-        ? props.segments.map((segment) => ({
-            ...segment,
-            originCity:
-              locationDetails[segment.origin]?.city_name || segment.originCity,
-            destinationCity:
-              locationDetails[segment.destination]?.city_name ||
-              segment.destinationCity,
-            locationDetails: locationDetails,
-            baggage: {
-              includedCheckedBags: props.baggage?.includedCheckedBags || 0,
-              includedCabinBags: props.baggage?.includedCabinBags || 0,
-            },
-          }))
-        : [
-            {
-              airline: props.airline,
-              airlineCode: props.airlineCode,
-              flightNumber: props.flightNumber,
-              origin: props.origin,
-              originCity:
-                locationDetails[props.origin]?.city_name || props.originCity,
-              destination: props.destination,
-              destinationCity:
-                locationDetails[props.destination]?.city_name ||
-                props.destinationCity,
-              departureTime: props.departureTime,
-              arrivalTime: props.arrivalTime,
-              duration: props.duration,
-              terminal: props.terminal,
-              aircraft: props.aircraft,
-              locationDetails: locationDetails,
-              baggage: {
-                includedCheckedBags: props.baggage?.includedCheckedBags || 0,
-                includedCabinBags: props.baggage?.includedCabinBags || 0,
-              },
-            },
-          ],
-      isLayover: props.isLayover,
-      layoverDuration: props.layoverTime || 0,
-      price: Number(props.price || 0),
-      totalPrice: Number(props.totalPrice || props.price || 0),
-      currency: props.currency || "USD",
-      cabinClass: props.cabinClass || "ECONOMY",
-      totalDuration: props.duration,
-      locationDetails: locationDetails,
-    };
-
-    useFlightStore.getState().setSelectedFlight(flightData);
-
-    // Ensure we have passengerCounts before proceeding
-    if (props.passengerCounts) {
-      const { adults, children, infants } = props.passengerCounts;
-
-      // Add passenger counts to URL parameters
-      const searchParams = new URLSearchParams({
-        adults: adults.toString(),
-        children: children.toString(),
-        infants: infants.toString(),
-      });
-
-      // Navigate to booking page with passenger counts
-      router.push(`/booking/${props.id}?${searchParams.toString()}`);
-    } else {
-      // Fallback to default values if no passenger counts provided
-      router.push(`/booking/${props.id}?adults=1&children=0&infants=0`);
-    }
-  };
-
   if (props.isLoading) {
     return <FlightCardSkeleton />;
   }
@@ -528,7 +448,11 @@ export default function FlightCard(props: FlightCardProps) {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">
-              {formatCurrency(Number(props.price || 0), props.currency)}
+              {getCurrencySymbol(props.currency)}
+              {props.price.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
             <p className="text-sm text-white/80">Ticket Price</p>
           </div>
@@ -595,7 +519,7 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={handleSelect} className="w-full md:w-auto">
+            <Button onClick={props.onSelect} className="w-full md:w-auto px-8">
               Select Flight
             </Button>
           </div>
@@ -626,7 +550,8 @@ export default function FlightCard(props: FlightCardProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} → {props.destination}
+                        {props.origin} ({props.originCity}) →{" "}
+                        {props.destination} ({props.destinationCity})
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
