@@ -76,14 +76,15 @@ export default function AddOns() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
+              className="flex"
             >
               <Card
-                className={
+                className={`flex-1 flex flex-col ${
                   selectedAddOns.includes(addon.id) ? "border-primary" : ""
-                }
+                }`}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
+                <CardContent className="p-6 flex flex-col flex-1">
+                  <div className="flex flex-col flex-1">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <addon.icon className="h-5 w-5 text-primary" />
