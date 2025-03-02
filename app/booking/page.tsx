@@ -7,6 +7,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,27 +26,14 @@ import {
   Loader2,
   ArrowLeft,
   LayoutDashboard,
-  Package,
-  ClipboardCheck,
-  CreditCard,
 } from "lucide-react";
 import { addDays } from "date-fns";
-import { cn } from "@/lib/utils";
 
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
 import { LocationSuggestions } from "@/components/location-suggestions";
 import { FlightCardSkeleton } from "@/components/flight-card";
 import { FlightFilters, FilterOptions } from "@/components/flight-filters";
-
-// Import default select components (using Radix UI)
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 
 // Updated Zod Schema with better validation messages
 const bookingSchema = z
@@ -71,12 +59,15 @@ const bookingSchema = z
     adults: z
       .number()
       .min(1, "At least 1 adult is required")
-      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
+      .max(9, "Maximum 9 adults allowed"),
     children: z
       .number()
-      .min(0, "Number of children cannot be negative")
-      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
-    infants: z.number().min(0, "Number of infants cannot be negative"),
+      .min(0, "Cannot be negative")
+      .max(9, "Maximum 9 children allowed"),
+    infants: z
+      .number()
+      .min(0, "Cannot be negative")
+      .max(9, "Maximum 9 infants allowed"),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
     currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
@@ -107,27 +98,6 @@ const bookingSchema = z
     {
       message: "Airport code must be 3 uppercase letters (e.g., JFK)",
       path: ["destination"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Check total seated travelers (adults + children) <= 9
-      return data.adults + data.children <= 9;
-    },
-    {
-      message:
-        "Total number of seated travelers (adults + children) cannot exceed 9",
-      path: ["children"], // Show error on children field
-    }
-  )
-  .refine(
-    (data) => {
-      // Check infants <= adults
-      return data.infants <= data.adults;
-    },
-    {
-      message: "Number of infants cannot exceed number of adults",
-      path: ["infants"], // Show error on infants field
     }
   );
 
@@ -162,36 +132,7 @@ const insuranceOptions = [
   },
 ];
 
-const steps = [
-  {
-    id: "passengers",
-    name: "Passenger Info",
-    icon: Users,
-  },
-  {
-    id: "addons",
-    name: "Add-ons",
-    icon: Package,
-  },
-  {
-    id: "review",
-    name: "Review",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "payment",
-    name: "Payment",
-    icon: CreditCard,
-  },
-];
-
-// Add this CSS class to your globals.css or a styled component
-const styles = {
-  hideNumberInputSpinButton:
-    "appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-};
-
-export default function BookingPage() {
+const BookingPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -220,13 +161,6 @@ export default function BookingPage() {
     useState(true);
   const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
   const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  // Add state for passenger counts
-  const [passengerCounts, setPassengerCounts] = useState({
-    adults: 1,
-    children: 0,
-    infants: 0,
-  });
 
   const {
     register,
@@ -234,7 +168,6 @@ export default function BookingPage() {
     control,
     watch,
     setValue,
-    setError,
     formState: { errors, touchedFields, isSubmitted },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
@@ -482,22 +415,11 @@ export default function BookingPage() {
 
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
-    const flightKey = `${flight.id}-${searchId}`;
-    return (
-      <FlightCard
-        key={flightKey}
-        {...flight}
-        passengerCounts={{
-          adults: watch("adults"),
-          children: watch("children"),
-          infants: watch("infants"),
-        }}
-        searchId={searchId}
-      />
-    );
+    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
+    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
   };
 
-  // Update filtered flights when the main flights array changes
+  // Add this useEffect to update filtered flights when main flights array changes
   useEffect(() => {
     setFilteredFlights(flights);
     const airlines = Array.from(
@@ -506,7 +428,7 @@ export default function BookingPage() {
     setUniqueAirlines(airlines);
   }, [flights]);
 
-  // Handle filter changes
+  // Add this function to handle filter changes
   const handleFilterChange = (filters: FilterOptions) => {
     let filtered = [...flights];
 
@@ -554,52 +476,6 @@ export default function BookingPage() {
     });
 
     setFilteredFlights(filtered);
-  };
-
-  // Add validation for passenger counts
-  const validatePassengerCounts = (
-    adults: number,
-    children: number,
-    infants: number
-  ) => {
-    const totalSeated = adults + children;
-
-    if (totalSeated > 9) {
-      setError("children", {
-        type: "custom",
-        message: "Total number of seated travelers cannot exceed 9",
-      });
-      return false;
-    }
-
-    if (infants > adults) {
-      setError("infants", {
-        type: "custom",
-        message: "Number of infants cannot exceed number of adults",
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  // Update passenger count handlers
-  const handleAdultsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("adults", value);
-    setPassengerCounts((prev) => ({ ...prev, adults: value }));
-  };
-
-  const handleChildrenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("children", value);
-    setPassengerCounts((prev) => ({ ...prev, children: value }));
-  };
-
-  const handleInfantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("infants", value);
-    setPassengerCounts((prev) => ({ ...prev, infants: value }));
   };
 
   return (
@@ -824,21 +700,19 @@ export default function BookingPage() {
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label>Adults (12+ years)</Label>
+                  <Label>Adults</Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("adults", {
-                        valueAsNumber: true,
-                        onChange: handleAdultsChange,
-                      })}
+                      autoComplete="off"
+                      {...register("adults", { valueAsNumber: true })}
                       min={1}
                       max={9}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
-                  {errors.adults && (
+                  {errors.adults && (touchedFields.adults || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.adults.message}
                     </p>
@@ -846,45 +720,42 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Children (2-12 years)</Label>
+                  <Label>Children (2-12)</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("children", {
-                        valueAsNumber: true,
-                        onChange: handleChildrenChange,
-                      })}
+                      autoComplete="off"
+                      {...register("children", { valueAsNumber: true })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
-                  {errors.children && (
-                    <p className="text-destructive text-sm">
-                      {errors.children.message}
-                    </p>
-                  )}
+                  {errors.children &&
+                    (touchedFields.children || isSubmitted) && (
+                      <p className="text-destructive text-sm">
+                        {errors.children.message}
+                      </p>
+                    )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Infants (0-2 years)</Label>
+                  <Label>Infants (0-2)</Label>
                   <div className="relative">
                     <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("infants", {
-                        valueAsNumber: true,
-                        onChange: handleInfantsChange,
-                      })}
+                      autoComplete="off"
+                      {...register("infants", { valueAsNumber: true })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
-                  {errors.infants && (
+                  {errors.infants && (touchedFields.infants || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.infants.message}
                     </p>
@@ -896,31 +767,14 @@ export default function BookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Class</Label>
-                  <Controller
-                    name="class"
-                    control={control}
-                    defaultValue="ECONOMY"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <Select
-                          defaultValue={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Class" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ECONOMY">Economy</SelectItem>
-                            <SelectItem value="PREMIUM_ECONOMY">
-                              Premium Economy
-                            </SelectItem>
-                            <SelectItem value="BUSINESS">Business</SelectItem>
-                            <SelectItem value="FIRST">First</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
+                  <div className="relative">
+                    <Select {...register("class")} defaultValue="ECONOMY">
+                      <option value="ECONOMY">Economy</option>
+                      <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                      <option value="BUSINESS">Business</option>
+                      <option value="FIRST">First</option>
+                    </Select>
+                  </div>
                   {errors.class && (touchedFields.class || isSubmitted) && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
@@ -1029,7 +883,37 @@ export default function BookingPage() {
             </div>
           )
         )}
+
+        {/* Insurance Options */}
+        <Card className="mt-8">
+          <div className="p-6 space-y-4">
+            <h4 className="font-medium">Insurance Options</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insuranceOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedInsurance(option.id)}
+                >
+                  <div className="space-y-2">
+                    <h5 className="font-medium">{option.name}</h5>
+                    <p className="text-sm text-muted-foreground">
+                      {option.description}
+                    </p>
+                    <p className="text-lg font-bold">${option.price}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
-}
+};
+
+export default BookingPage;
