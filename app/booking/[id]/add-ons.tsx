@@ -1,58 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { formatCurrency } from "@/lib/utils";
-import { useFlightStore } from "@/store/flightStore";
-import { useBookingStore } from "@/store/bookingStore";
-import { addOns, CURRENCY_RATES } from "@/lib/constants";
+import { Luggage, Utensils, Wifi, Headphones, Car, Sofa } from "lucide-react";
+
+const addOns = [
+  {
+    id: "extra-baggage",
+    name: "Extra Baggage",
+    description: "Add an extra 23kg to your luggage allowance",
+    price: 50,
+    icon: Luggage,
+  },
+  {
+    id: "gourmet-meal",
+    name: "Gourmet Meal",
+    description: "Enjoy a premium dining experience at 30,000 feet",
+    price: 25,
+    icon: Utensils,
+  },
+  {
+    id: "wifi-access",
+    name: "Wi-Fi Access",
+    description: "Stay connected throughout your flight",
+    price: 15,
+    icon: Wifi,
+  },
+  {
+    id: "entertainment",
+    name: "Entertainment Package",
+    description: "Access to premium movies, TV shows, and games",
+    price: 20,
+    icon: Headphones,
+  },
+  {
+    id: "airport-transfer",
+    name: "Airport Transfer",
+    description: "Comfortable ride from the airport to your hotel",
+    price: 40,
+    icon: Car,
+  },
+  {
+    id: "lounge-access",
+    name: "Lounge Access",
+    description: "Relax in our premium airport lounge before your flight",
+    price: 35,
+    icon: Sofa,
+  },
+];
 
 export default function AddOns() {
-  const selectedFlight = useFlightStore((state) => state.selectedFlight);
-  const { updateAddOns, calculateTotalPrice, temporaryBooking } =
-    useBookingStore();
-
-  // Initialize selectedAddOns from the store's state
-  const [selectedAddOns, setSelectedAddOns] = useState<string[]>(
-    temporaryBooking.selectedAddOns || []
-  );
-
-  const currency = selectedFlight?.currency || "USD";
-
-  const convertPrice = (basePrice: number, targetCurrency: string): number => {
-    const rate =
-      CURRENCY_RATES[targetCurrency as keyof typeof CURRENCY_RATES] || 1;
-    return Math.round(basePrice * rate);
-  };
-
-  // Initialize base price and sync with store when component mounts
-  useEffect(() => {
-    if (selectedFlight) {
-      useBookingStore
-        .getState()
-        .setBasePrice(
-          selectedFlight.totalPrice || selectedFlight.price,
-          selectedFlight.currency
-        );
-      calculateTotalPrice();
-    }
-  }, [selectedFlight]);
-
-  // Keep local state in sync with store state
-  useEffect(() => {
-    setSelectedAddOns(temporaryBooking.selectedAddOns);
-  }, [temporaryBooking.selectedAddOns]);
+  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
 
   const toggleAddOn = (id: string) => {
-    const newSelectedAddOns = selectedAddOns.includes(id)
-      ? selectedAddOns.filter((item) => item !== id)
-      : [...selectedAddOns, id];
-
-    setSelectedAddOns(newSelectedAddOns);
-    updateAddOns(newSelectedAddOns);
-    calculateTotalPrice();
+    setSelectedAddOns((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -67,47 +72,39 @@ export default function AddOns() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {addOns.map((addon, index) => {
-          const convertedPrice = convertPrice(addon.basePrice, currency);
-
-          return (
-            <motion.div
-              key={addon.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="flex"
+        {addOns.map((addon, index) => (
+          <motion.div
+            key={addon.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.1 }}
+          >
+            <Card
+              className={
+                selectedAddOns.includes(addon.id) ? "border-primary" : ""
+              }
             >
-              <Card
-                className={`flex-1 flex flex-col ${
-                  selectedAddOns.includes(addon.id) ? "border-primary" : ""
-                }`}
-              >
-                <CardContent className="p-6 flex flex-col flex-1">
-                  <div className="flex flex-col flex-1">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <addon.icon className="h-5 w-5 text-primary" />
-                        <h3 className="font-semibold">{addon.name}</h3>
-                      </div>
-                      <CardDescription>{addon.description}</CardDescription>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <addon.icon className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold">{addon.name}</h3>
                     </div>
+                    <CardDescription>{addon.description}</CardDescription>
                   </div>
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="font-semibold">
-                      {formatCurrency(convertedPrice, currency)}
-                    </p>
-                    <Switch
-                      checked={selectedAddOns.includes(addon.id)}
-                      onCheckedChange={() => toggleAddOn(addon.id)}
-                      className="shadow-[rgba(50,_50,_93,_0.25)_0px_30px_60px_-12px_inset,_rgba(0,_0,_0,_0.3)_0px_18px_36px_-18px_inset]"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+                </div>
+                <div className="flex items-center justify-between mt-4">
+                  <p className="font-semibold">${addon.price}</p>
+                  <Switch
+                    checked={selectedAddOns.includes(addon.id)}
+                    onCheckedChange={() => toggleAddOn(addon.id)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </div>
     </div>
   );
