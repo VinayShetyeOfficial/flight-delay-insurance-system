@@ -192,9 +192,6 @@ class AmadeusService {
             }))
           );
 
-          // Get location details from the API response
-          const locationDetails = response.data.dictionaries.locations || {};
-
           if (isLayover) {
             const firstSegment = flightSegments[0];
             const lastSegment = flightSegments[flightSegments.length - 1];
@@ -212,7 +209,6 @@ class AmadeusService {
               isLayover: true,
               segments: flightSegments,
               layoverTime,
-              locationDetails,
               // Display data for the card
               airline: firstSegment.airline,
               airlineCode: firstSegment.airlineCode,
@@ -235,7 +231,6 @@ class AmadeusService {
             return {
               ...baseFlightData,
               ...flightSegments[0],
-              locationDetails,
               isLayover: false,
             };
           }
