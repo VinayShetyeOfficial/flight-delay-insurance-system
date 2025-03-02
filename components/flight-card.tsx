@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -75,6 +76,7 @@ interface FlightCardProps {
   };
   cabinClass?: string;
   isLoading?: boolean;
+  id: string; // Add this to identify the selected flight
 }
 
 // Debug function for direct flights.
@@ -317,6 +319,7 @@ export function FlightCardSkeleton() {
 
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
+  const router = useRouter();
 
   // Add these states in the component
   const [locationDetails, setLocationDetails] = useState<{
@@ -406,6 +409,10 @@ export default function FlightCard(props: FlightCardProps) {
     }
     // For direct flights
     return `Route: ${props.origin} → ${props.destination}`;
+  };
+
+  const handleSelectFlight = () => {
+    router.push(`/booking/${props.id}`);
   };
 
   if (props.isLoading) {
@@ -519,7 +526,10 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={props.onSelect} className="w-full md:w-auto px-8">
+            <Button
+              onClick={handleSelectFlight}
+              className="w-full md:w-auto px-8"
+            >
               Select Flight
             </Button>
           </div>
