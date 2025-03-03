@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useFlightStore } from "@/store/flightStore";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -416,20 +417,74 @@ export default function FlightCard(props: FlightCardProps) {
     return `Route: ${props.origin} → ${props.destination}`;
   };
 
-  const handleSelectFlight = () => {
-    if (props.onSelect) {
-      props.onSelect();
-    }
+  const handleSelect = () => {
+    const flightData = {
+      segments: props.isLayover
+        ? props.segments.map((segment) => ({
+            ...segment,
+            originCity:
+              locationDetails[segment.origin]?.city_name || segment.originCity,
+            destinationCity:
+              locationDetails[segment.destination]?.city_name ||
+              segment.destinationCity,
+            locationDetails: locationDetails,
+            baggage: {
+              includedCheckedBags: props.baggage?.includedCheckedBags || 0,
+              includedCabinBags: props.baggage?.includedCabinBags || 0,
+            },
+          }))
+        : [
+            {
+              airline: props.airline,
+              airlineCode: props.airlineCode,
+              flightNumber: props.flightNumber,
+              origin: props.origin,
+              originCity:
+                locationDetails[props.origin]?.city_name || props.originCity,
+              destination: props.destination,
+              destinationCity:
+                locationDetails[props.destination]?.city_name ||
+                props.destinationCity,
+              departureTime: props.departureTime,
+              arrivalTime: props.arrivalTime,
+              duration: props.duration,
+              terminal: props.terminal,
+              aircraft: props.aircraft,
+              locationDetails: locationDetails,
+              baggage: {
+                includedCheckedBags: props.baggage?.includedCheckedBags || 0,
+                includedCabinBags: props.baggage?.includedCabinBags || 0,
+              },
+            },
+          ],
+      isLayover: props.isLayover,
+      layoverDuration: props.layoverTime || 0,
+      price: props.price,
+      currency: props.currency,
+      cabinClass: props.cabinClass || "ECONOMY",
+      totalDuration: props.duration,
+      locationDetails: locationDetails,
+    };
 
-    // Add passenger counts to the URL when navigating
-    const {
-      adults = 1,
-      children = 0,
-      infants = 0,
-    } = props.passengerCounts || {};
-    router.push(
-      `/booking/${props.id}?adults=${adults}&children=${children}&infants=${infants}`
-    );
+    useFlightStore.getState().setSelectedFlight(flightData);
+
+    // Ensure we have passengerCounts before proceeding
+    if (props.passengerCounts) {
+      const { adults, children, infants } = props.passengerCounts;
+
+      // Add passenger counts to URL parameters
+      const searchParams = new URLSearchParams({
+        adults: adults.toString(),
+        children: children.toString(),
+        infants: infants.toString(),
+      });
+
+      // Navigate to booking page with passenger counts
+      router.push(`/booking/${props.id}?${searchParams.toString()}`);
+    } else {
+      // Fallback to default values if no passenger counts provided
+      router.push(`/booking/${props.id}?adults=1&children=0&infants=0`);
+    }
   };
 
   if (props.isLoading) {
@@ -543,7 +598,7 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={handleSelectFlight} className="w-full md:w-auto">
+            <Button onClick={handleSelect} className="w-full md:w-auto">
               Select Flight
             </Button>
           </div>
