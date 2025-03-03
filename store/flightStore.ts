@@ -42,7 +42,6 @@ interface FlightStore {
     isLayover: boolean;
     layoverDuration: number;
     price: number;
-    totalPrice: number;
     currency: string;
     cabinClass: string;
     totalDuration: number;
