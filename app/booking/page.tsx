@@ -71,15 +71,12 @@ const bookingSchema = z
     adults: z
       .number()
       .min(1, "At least 1 adult is required")
-      .max(9, "Maximum 9 adults allowed"),
+      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
     children: z
       .number()
-      .min(0, "Cannot be negative")
-      .max(9, "Maximum 9 children allowed"),
-    infants: z
-      .number()
-      .min(0, "Cannot be negative")
-      .max(9, "Maximum 9 infants allowed"),
+      .min(0, "Number of children cannot be negative")
+      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
+    infants: z.number().min(0, "Number of infants cannot be negative"),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
     currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
@@ -110,6 +107,27 @@ const bookingSchema = z
     {
       message: "Airport code must be 3 uppercase letters (e.g., JFK)",
       path: ["destination"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Check total seated travelers (adults + children) <= 9
+      return data.adults + data.children <= 9;
+    },
+    {
+      message:
+        "Total number of seated travelers (adults + children) cannot exceed 9",
+      path: ["children"], // Show error on children field
+    }
+  )
+  .refine(
+    (data) => {
+      // Check infants <= adults
+      return data.infants <= data.adults;
+    },
+    {
+      message: "Number of infants cannot exceed number of adults",
+      path: ["infants"], // Show error on infants field
     }
   );
 
@@ -167,6 +185,12 @@ const steps = [
   },
 ];
 
+// Add this CSS class to your globals.css or a styled component
+const styles = {
+  hideNumberInputSpinButton:
+    "appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+};
+
 export default function BookingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -197,6 +221,12 @@ export default function BookingPage() {
   const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
   const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
+  // Add state for passenger counts
+  const [passengerCounts, setPassengerCounts] = useState({
+    adults: 1,
+    children: 0,
+    infants: 0,
+  });
 
   const {
     register,
@@ -204,6 +234,7 @@ export default function BookingPage() {
     control,
     watch,
     setValue,
+    setError,
     formState: { errors, touchedFields, isSubmitted },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
@@ -452,7 +483,14 @@ export default function BookingPage() {
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
-    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
+    return (
+      <FlightCard
+        key={flightKey}
+        searchId={searchId}
+        {...flight}
+        passengerCounts={passengerCounts}
+      />
+    );
   };
 
   // Update filtered flights when the main flights array changes
@@ -512,6 +550,52 @@ export default function BookingPage() {
     });
 
     setFilteredFlights(filtered);
+  };
+
+  // Add validation for passenger counts
+  const validatePassengerCounts = (
+    adults: number,
+    children: number,
+    infants: number
+  ) => {
+    const totalSeated = adults + children;
+
+    if (totalSeated > 9) {
+      setError("children", {
+        type: "custom",
+        message: "Total number of seated travelers cannot exceed 9",
+      });
+      return false;
+    }
+
+    if (infants > adults) {
+      setError("infants", {
+        type: "custom",
+        message: "Number of infants cannot exceed number of adults",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Update passenger count handlers
+  const handleAdultsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setValue("adults", value);
+    setPassengerCounts((prev) => ({ ...prev, adults: value }));
+  };
+
+  const handleChildrenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setValue("children", value);
+    setPassengerCounts((prev) => ({ ...prev, children: value }));
+  };
+
+  const handleInfantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setValue("infants", value);
+    setPassengerCounts((prev) => ({ ...prev, infants: value }));
   };
 
   return (
@@ -736,19 +820,21 @@ export default function BookingPage() {
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label>Adults</Label>
+                  <Label>Adults (12+ years)</Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
-                      {...register("adults", { valueAsNumber: true })}
+                      {...register("adults", {
+                        valueAsNumber: true,
+                        onChange: handleAdultsChange,
+                      })}
                       min={1}
                       max={9}
-                      className="pl-10"
+                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
                     />
                   </div>
-                  {errors.adults && (touchedFields.adults || isSubmitted) && (
+                  {errors.adults && (
                     <p className="text-destructive text-sm">
                       {errors.adults.message}
                     </p>
@@ -756,42 +842,45 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Children (2-12)</Label>
+                  <Label>Children (2-12 years)</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
-                      {...register("children", { valueAsNumber: true })}
+                      {...register("children", {
+                        valueAsNumber: true,
+                        onChange: handleChildrenChange,
+                      })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className="pl-10"
+                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
                     />
                   </div>
-                  {errors.children &&
-                    (touchedFields.children || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.children.message}
-                      </p>
-                    )}
+                  {errors.children && (
+                    <p className="text-destructive text-sm">
+                      {errors.children.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Infants (0-2)</Label>
+                  <Label>Infants (0-2 years)</Label>
                   <div className="relative">
                     <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
-                      {...register("infants", { valueAsNumber: true })}
+                      {...register("infants", {
+                        valueAsNumber: true,
+                        onChange: handleInfantsChange,
+                      })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className="pl-10"
+                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
                     />
                   </div>
-                  {errors.infants && (touchedFields.infants || isSubmitted) && (
+                  {errors.infants && (
                     <p className="text-destructive text-sm">
                       {errors.infants.message}
                     </p>
