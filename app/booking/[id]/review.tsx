@@ -132,6 +132,16 @@ export default function Review() {
     }
   };
 
+  const renderLayoverInfo = (index: number) => {
+    if (!selectedFlight?.layoverTimes) return null;
+
+    return (
+      <div className="layover-info">
+        Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 p-4 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -281,9 +291,7 @@ export default function Review() {
                       className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
                       style={{ borderTopStyle: "dashed" }}
                     >
-                      <Clock className="h-3 w-3 inline mr-1" />
-                      Layover:{" "}
-                      {formatDurationHM(selectedFlight.layoverDuration || 0)}
+                      {renderLayoverInfo(index)}
                     </div>
                   )}
               </div>
