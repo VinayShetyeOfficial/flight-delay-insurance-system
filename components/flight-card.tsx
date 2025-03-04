@@ -197,29 +197,55 @@ const getFlightClassLabel = (cabinClass: string) => {
   }
 };
 
-// Add this helper function at the top of the component
-const formatDurationHM = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+// Update the layover time calculation helper function
+const calculateLayoverTime = (
+  currentSegment: FlightSegment,
+  nextSegment: FlightSegment
+): number => {
+  // Parse times using 12-hour format (e.g., "2:30 PM")
+  const parseTime = (timeStr: string) => {
+    const [time, period] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
 
-  // If duration is 24 hours or more, show in days
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-
-    if (remainingHours === 0) {
-      return `${days} ${days === 1 ? "day" : "days"}`;
+    // Convert to 24-hour format
+    if (period === "PM" && hours !== 12) {
+      hours += 12;
+    } else if (period === "AM" && hours === 12) {
+      hours = 0;
     }
 
-    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
+    return { hours, minutes };
+  };
+
+  const arrival = parseTime(currentSegment.arrivalTime);
+  const departure = parseTime(nextSegment.departureTime);
+
+  // Create Date objects for comparison
+  const arrivalTime = new Date(2000, 0, 1, arrival.hours, arrival.minutes);
+  const departureTime = new Date(
+    2000,
+    0,
+    1,
+    departure.hours,
+    departure.minutes
+  );
+
+  // If departure is earlier than arrival, add 24 hours
+  if (departureTime < arrivalTime) {
+    departureTime.setDate(departureTime.getDate() + 1);
   }
 
-  // For durations less than 24 hours
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
+  // Calculate difference in minutes
+  const diffMinutes =
+    (departureTime.getTime() - arrivalTime.getTime()) / (1000 * 60);
+  return Math.round(diffMinutes);
+};
 
-  return `${hours}h ${remainingMinutes}m`;
+// Update the duration formatting function
+const formatDurationHM = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
 };
 
 // Add these interfaces at the top
@@ -332,39 +358,6 @@ export function FlightCardSkeleton() {
       </div>
     </Card>
   );
-}
-
-// Update the calculateLayoverTime function to properly handle date strings
-function calculateLayoverTime(
-  currentSegment: FlightSegment,
-  nextSegment: FlightSegment
-): number {
-  try {
-    // Parse the time strings into Date objects
-    const arrivalTimeParts = currentSegment.arrivalTime.split(":");
-    const departureTimeParts = nextSegment.departureTime.split(":");
-
-    // Create Date objects for today with the given times
-    const arrivalTime = new Date();
-    arrivalTime.setHours(parseInt(arrivalTimeParts[0]));
-    arrivalTime.setMinutes(parseInt(arrivalTimeParts[1]));
-
-    const departureTime = new Date();
-    departureTime.setHours(parseInt(departureTimeParts[0]));
-    departureTime.setMinutes(parseInt(departureTimeParts[1]));
-
-    // If departure is earlier than arrival, it means it's the next day
-    if (departureTime < arrivalTime) {
-      departureTime.setDate(departureTime.getDate() + 1);
-    }
-
-    // Calculate difference in minutes
-    const diffMs = departureTime.getTime() - arrivalTime.getTime();
-    return Math.floor(diffMs / (1000 * 60));
-  } catch (error) {
-    console.error("Error calculating layover time:", error);
-    return 0;
-  }
 }
 
 export default function FlightCard(props: FlightCardProps) {
