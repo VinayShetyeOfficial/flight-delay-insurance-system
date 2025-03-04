@@ -123,7 +123,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 
   const segments = props.segments;
   const totalPrice = props.totalPrice || props.price;
-  const layoverTime = props.layoverTime || 0;
+
+  // Use the same calculateLayoverTime function for layover calculations
+  const layoverTimes: number[] = [];
+  for (let i = 0; i < segments.length - 1; i++) {
+    const currentLayover = calculateLayoverTime(segments[i], segments[i + 1]);
+    layoverTimes.push(currentLayover);
+  }
+  const totalLayoverTime = layoverTimes.reduce((acc, time) => acc + time, 0);
 
   let output = `
 ╔════════════════════════════════════════════════════════════╗
@@ -132,11 +139,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Total Journey Summary:
 ║ From: ${segments[0].origin} To: ${segments[segments.length - 1].destination}
 ║ Total Duration: ${formatDuration(
-    segments.reduce((acc, seg) => acc + seg.duration, 0) + layoverTime
+    segments.reduce((acc, seg) => acc + seg.duration, 0) + totalLayoverTime
   )}
 ║ Total Price: ${getCurrencySymbol(props.currency)}${totalPrice.toLocaleString(
     undefined,
-    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
   )}
 ╠════════════════════════════════════════════════════════════╣`;
 
@@ -156,10 +166,11 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Status: ${segment.status || "SCHEDULED"}`;
 
     if (index < segments.length - 1) {
+      const layover = calculateLayoverTime(segment, segments[index + 1]);
       output += `
 ╠════════════════════════════════════════════════════════════╣
 ║ LAYOVER AT ${segment.destination}:
-║ Duration: ${formatDuration(layoverTime)}
+║ Duration: ${formatDuration(layover)}
 ║ Next Flight Departs: ${segments[index + 1].departureTime}
 ╠════════════════════════════════════════════════════════════╣`;
     }
@@ -321,6 +332,39 @@ export function FlightCardSkeleton() {
       </div>
     </Card>
   );
+}
+
+// Update the calculateLayoverTime function to properly handle date strings
+function calculateLayoverTime(
+  currentSegment: FlightSegment,
+  nextSegment: FlightSegment
+): number {
+  try {
+    // Parse the time strings into Date objects
+    const arrivalTimeParts = currentSegment.arrivalTime.split(":");
+    const departureTimeParts = nextSegment.departureTime.split(":");
+
+    // Create Date objects for today with the given times
+    const arrivalTime = new Date();
+    arrivalTime.setHours(parseInt(arrivalTimeParts[0]));
+    arrivalTime.setMinutes(parseInt(arrivalTimeParts[1]));
+
+    const departureTime = new Date();
+    departureTime.setHours(parseInt(departureTimeParts[0]));
+    departureTime.setMinutes(parseInt(departureTimeParts[1]));
+
+    // If departure is earlier than arrival, it means it's the next day
+    if (departureTime < arrivalTime) {
+      departureTime.setDate(departureTime.getDate() + 1);
+    }
+
+    // Calculate difference in minutes
+    const diffMs = departureTime.getTime() - arrivalTime.getTime();
+    return Math.floor(diffMs / (1000 * 60));
+  } catch (error) {
+    console.error("Error calculating layover time:", error);
+    return 0;
+  }
 }
 
 export default function FlightCard(props: FlightCardProps) {
@@ -617,9 +661,14 @@ export default function FlightCard(props: FlightCardProps) {
                       <div className="flex items-center gap-2">
                         <Plane className="h-4 w-4 shrink-0" />
                         {props.isLayover
-                          ? `${props.segments?.length - 1} stop(s)`
+                          ? `${props.segments?.length - 1} ${
+                              props.segments?.length - 1 === 1
+                                ? "Stop"
+                                : "Stops"
+                            }`
                           : "Non-stop flight"}
                       </div>
+
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 shrink-0" />
                         Total duration: {formatDurationHM(props.duration)}
@@ -809,7 +858,10 @@ export default function FlightCard(props: FlightCardProps) {
                             <Clock className="h-3 w-3 inline mr-1" />
                             Layover:{" "}
                             {formatDurationHM(
-                              props.layoverTime / (props.segments.length - 1)
+                              calculateLayoverTime(
+                                segment,
+                                props.segments[index + 1]
+                              )
                             )}
                           </div>
                         )}
