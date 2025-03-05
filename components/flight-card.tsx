@@ -626,8 +626,7 @@ export default function FlightCard(props: FlightCardProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} ({props.originCity}) →{" "}
-                        {props.destination} ({props.destinationCity})
+                        {props.origin} → {props.destination}
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
