@@ -66,73 +66,29 @@ export default function PassengerForm({
   infants = 0,
   onValidityChange,
 }: PassengerFormProps) {
-  const { updatePassengers, temporaryBooking } = useBookingStore();
-
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      passengers:
-        temporaryBooking.passengers.length > 0
-          ? temporaryBooking.passengers
-          : Array(adults + children + infants).fill({
-              firstName: "",
-              lastName: "",
-              dateOfBirth: "",
-              gender: undefined,
-              passportNumber: "",
-              nationality: "",
-              email: "",
-              phone: "",
-              specialRequests: "",
-            }),
+      passengers: Array(adults + children + infants).fill({
+        firstName: "",
+        lastName: "",
+        dateOfBirth: "",
+        gender: undefined,
+        passportNumber: "",
+        nationality: "",
+        email: "",
+        phone: "",
+        specialRequests: "",
+      }),
     },
-    mode: "all",
+    mode: "onChange",
   });
 
-  // Update store when form values change
+  // Update the validity check to use isDirty as well
   useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (value.passengers) {
-        const typedPassengers = value.passengers.map((passenger, index) => ({
-          ...passenger,
-          type:
-            index < adults
-              ? "ADULT"
-              : index < adults + children
-              ? "CHILD"
-              : "INFANT",
-        }));
-        updatePassengers(typedPassengers);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [form, updatePassengers, adults, children]);
-
-  // Trigger validation on mount and when stored data changes
-  useEffect(() => {
-    if (temporaryBooking.passengers.length > 0) {
-      form.trigger().then((isValid) => {
-        onValidityChange?.(isValid);
-      });
-    }
-  }, [form, onValidityChange, temporaryBooking.passengers]);
-
-  // Validity check effect
-  useEffect(() => {
-    const validateForm = async () => {
-      const result = await form.trigger();
-      onValidityChange?.(result);
-    };
-
-    validateForm();
-
-    const subscription = form.watch(() => {
-      validateForm();
-    });
-
-    return () => subscription.unsubscribe();
-  }, [form, onValidityChange]);
+    const isValid = form.formState.isValid && form.formState.isDirty;
+    onValidityChange?.(isValid);
+  }, [form.formState.isValid, form.formState.isDirty, onValidityChange]);
 
   const renderPassengerForms = () => {
     const elements = [];
@@ -216,15 +172,6 @@ function PassengerFormSection({
   number: number;
   form: ReturnType<typeof useForm>;
 }) {
-  // Add this utility function for proper text case
-  const toTitleCase = (str: string) => {
-    return str
-      .toLowerCase()
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   const getPassengerLabel = (t: string, n: number) => {
     if (t === "ADULT") return `Adult ${n}`;
     if (t === "CHILD") return `Child (2-12 years) ${n}`;
@@ -258,14 +205,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("First Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter first name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter first name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -278,14 +218,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("Last Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter last name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter last name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
