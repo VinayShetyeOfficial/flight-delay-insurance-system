@@ -123,14 +123,7 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 
   const segments = props.segments;
   const totalPrice = props.totalPrice || props.price;
-
-  // Use the same calculateLayoverTime function for layover calculations
-  const layoverTimes: number[] = [];
-  for (let i = 0; i < segments.length - 1; i++) {
-    const currentLayover = calculateLayoverTime(segments[i], segments[i + 1]);
-    layoverTimes.push(currentLayover);
-  }
-  const totalLayoverTime = layoverTimes.reduce((acc, time) => acc + time, 0);
+  const layoverTime = props.layoverTime || 0;
 
   let output = `
 ╔════════════════════════════════════════════════════════════╗
@@ -139,14 +132,11 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Total Journey Summary:
 ║ From: ${segments[0].origin} To: ${segments[segments.length - 1].destination}
 ║ Total Duration: ${formatDuration(
-    segments.reduce((acc, seg) => acc + seg.duration, 0) + totalLayoverTime
+    segments.reduce((acc, seg) => acc + seg.duration, 0) + layoverTime
   )}
 ║ Total Price: ${getCurrencySymbol(props.currency)}${totalPrice.toLocaleString(
     undefined,
-    {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
   )}
 ╠════════════════════════════════════════════════════════════╣`;
 
@@ -166,11 +156,10 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Status: ${segment.status || "SCHEDULED"}`;
 
     if (index < segments.length - 1) {
-      const layover = calculateLayoverTime(segment, segments[index + 1]);
       output += `
 ╠════════════════════════════════════════════════════════════╣
 ║ LAYOVER AT ${segment.destination}:
-║ Duration: ${formatDuration(layover)}
+║ Duration: ${formatDuration(layoverTime)}
 ║ Next Flight Departs: ${segments[index + 1].departureTime}
 ╠════════════════════════════════════════════════════════════╣`;
     }
@@ -197,55 +186,29 @@ const getFlightClassLabel = (cabinClass: string) => {
   }
 };
 
-// Update the layover time calculation helper function
-const calculateLayoverTime = (
-  currentSegment: FlightSegment,
-  nextSegment: FlightSegment
-): number => {
-  // Parse times using 12-hour format (e.g., "2:30 PM")
-  const parseTime = (timeStr: string) => {
-    const [time, period] = timeStr.split(" ");
-    let [hours, minutes] = time.split(":").map(Number);
+// Add this helper function at the top of the component
+const formatDurationHM = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
 
-    // Convert to 24-hour format
-    if (period === "PM" && hours !== 12) {
-      hours += 12;
-    } else if (period === "AM" && hours === 12) {
-      hours = 0;
+  // If duration is 24 hours or more, show in days
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+
+    if (remainingHours === 0) {
+      return `${days} ${days === 1 ? "day" : "days"}`;
     }
 
-    return { hours, minutes };
-  };
-
-  const arrival = parseTime(currentSegment.arrivalTime);
-  const departure = parseTime(nextSegment.departureTime);
-
-  // Create Date objects for comparison
-  const arrivalTime = new Date(2000, 0, 1, arrival.hours, arrival.minutes);
-  const departureTime = new Date(
-    2000,
-    0,
-    1,
-    departure.hours,
-    departure.minutes
-  );
-
-  // If departure is earlier than arrival, add 24 hours
-  if (departureTime < arrivalTime) {
-    departureTime.setDate(departureTime.getDate() + 1);
+    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
   }
 
-  // Calculate difference in minutes
-  const diffMinutes =
-    (departureTime.getTime() - arrivalTime.getTime()) / (1000 * 60);
-  return Math.round(diffMinutes);
-};
+  // For durations less than 24 hours
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
 
-// Update the duration formatting function
-const formatDurationHM = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
+  return `${hours}h ${remainingMinutes}m`;
 };
 
 // Add these interfaces at the top
@@ -654,21 +617,17 @@ export default function FlightCard(props: FlightCardProps) {
                       <div className="flex items-center gap-2">
                         <Plane className="h-4 w-4 shrink-0" />
                         {props.isLayover
-                          ? `${props.segments?.length - 1} ${
-                              props.segments?.length - 1 === 1
-                                ? "Stop"
-                                : "Stops"
-                            }`
+                          ? `${props.segments?.length - 1} stop(s)`
                           : "Non-stop flight"}
                       </div>
-
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 shrink-0" />
                         Total duration: {formatDurationHM(props.duration)}
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} → {props.destination}
+                        {props.origin} ({props.originCity}) →{" "}
+                        {props.destination} ({props.destinationCity})
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
@@ -851,10 +810,7 @@ export default function FlightCard(props: FlightCardProps) {
                             <Clock className="h-3 w-3 inline mr-1" />
                             Layover:{" "}
                             {formatDurationHM(
-                              calculateLayoverTime(
-                                segment,
-                                props.segments[index + 1]
-                              )
+                              props.layoverTime / (props.segments.length - 1)
                             )}
                           </div>
                         )}
