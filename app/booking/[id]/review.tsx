@@ -17,8 +17,12 @@ import {
   UserRound,
   User,
   Baby,
+  Ticket,
+  ReceiptText,
+  Clock3,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { addOns, CURRENCY_RATES } from "@/lib/constants";
 
 // Add the formatDurationHM function
 const formatDurationHM = (minutes: number) => {
@@ -44,6 +48,25 @@ const formatDurationHM = (minutes: number) => {
 export default function Review() {
   const { selectedFlight } = useFlightStore();
   const { temporaryBooking } = useBookingStore();
+  const currency = selectedFlight?.currency || "USD";
+
+  const convertPrice = (basePrice: number, targetCurrency: string): number => {
+    const rate =
+      CURRENCY_RATES[targetCurrency as keyof typeof CURRENCY_RATES] || 1;
+    return Math.round(basePrice * rate);
+  };
+
+  // Get selected add-ons with converted prices
+  const selectedAddOnsWithPrices = temporaryBooking.selectedAddOns
+    .map((addonId) => {
+      const addon = addOns.find((a) => a.id === addonId);
+      if (!addon) return null;
+      return {
+        ...addon,
+        convertedPrice: convertPrice(addon.basePrice, currency),
+      };
+    })
+    .filter(Boolean);
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -117,7 +140,10 @@ export default function Review() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-muted-foreground">Total Price</div>
+          <div className="text-sm text-muted-foreground flex items-center justify-end gap-2">
+            <Ticket className="h-4 w-4" />
+            Ticket Price
+          </div>
           <div className="text-2xl font-bold">
             {formatCurrency(
               temporaryBooking.totalPrice ||
@@ -174,7 +200,8 @@ export default function Review() {
                         </span>
                       </div>
                     </div>
-                    <span className="text-white/80">
+                    <span className="text-white/80 flex items-center gap-1">
+                      <Clock3 className="h-4 w-4" />
                       {formatDurationHM(segment.duration)}
                     </span>
                   </div>
@@ -289,7 +316,7 @@ export default function Review() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -318,7 +345,7 @@ export default function Review() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -335,6 +362,103 @@ export default function Review() {
                   {renderAircraftAndBaggageInfo(segment)}
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Selected Add-ons
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col flex-1">
+            {selectedAddOnsWithPrices.length > 0 ? (
+              <div className="space-y-4 flex flex-col flex-1">
+                <div className="flex-1">
+                  {selectedAddOnsWithPrices.map((addon) => (
+                    <div
+                      key={addon.id}
+                      className="flex items-center justify-between mb-4"
+                    >
+                      <div className="flex items-center gap-2">
+                        <addon.icon className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{addon.name}</span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {formatCurrency(addon.convertedPrice, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-4 border-t mt-auto">
+                  <div className="flex justify-between font-medium">
+                    <span>Add-ons Total</span>
+                    <span>
+                      {formatCurrency(
+                        selectedAddOnsWithPrices.reduce(
+                          (total, addon) => total + addon.convertedPrice,
+                          0
+                        ),
+                        currency
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-sm">
+                No add-ons selected
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ticket className="h-5 w-5" />
+              Price Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col flex-1">
+            <div className="space-y-4 flex-1">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  Base Ticket Price
+                </div>
+                <div className="font-medium">
+                  {formatCurrency(temporaryBooking.basePrice, currency)}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  Add-ons Total
+                </div>
+                <div className="font-medium">
+                  {formatCurrency(
+                    selectedAddOnsWithPrices.reduce(
+                      (total, addon) => total + addon.convertedPrice,
+                      0
+                    ),
+                    currency
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t mt-auto relative">
+              <div className="flex justify-between items-center">
+                <div className="font-semibold">Total Price</div>
+                <div className="text-xl font-bold text-primary">
+                  {formatCurrency(temporaryBooking.totalPrice, currency)}
+                </div>
+              </div>
+              <div className="absolute right-0 -bottom-3.5 text-xs text-muted-foreground">
+                Including all taxes and fees
+              </div>
             </div>
           </CardContent>
         </Card>
