@@ -1,7 +1,6 @@
 "use client";
 
 import { useFlightStore } from "@/store/flightStore";
-import { useBookingStore } from "@/store/bookingStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -11,67 +10,35 @@ import {
   Package,
   Luggage,
   Wifi,
-  Utensils,
+  UtensilsCrossed,
   Power,
   Clock,
-  UserRound,
-  User,
-  Baby,
-  Ticket,
-  ReceiptText,
-  Clock3,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
 
 // Add the formatDurationHM function
-const formatDurationHM = (minutes: number): string => {
-  const days = Math.floor(minutes / (24 * 60));
-  const remainingMinutes = minutes % (24 * 60);
-  const hours = Math.floor(remainingMinutes / 60);
-  const mins = remainingMinutes % 60;
+const formatDurationHM = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
 
-  let durationString = "";
-
-  if (days > 0) {
-    durationString += `${days} day${days > 1 ? "s" : ""} `;
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    if (remainingHours === 0) {
+      return `${days} ${days === 1 ? "day" : "days"}`;
+    }
+    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
   }
 
-  if (hours > 0 || days > 0) {
-    durationString += `${hours}h `;
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
   }
 
-  if (mins > 0 || (hours === 0 && days === 0)) {
-    durationString += `${mins}m`;
-  }
-
-  return durationString.trim();
+  return `${hours}h ${remainingMinutes}m`;
 };
 
 export default function Review() {
   const { selectedFlight } = useFlightStore();
-  const { temporaryBooking } = useBookingStore();
-  const currency = selectedFlight?.currency || "USD";
-  const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
-
-  // Get selected add-ons with converted prices
-  const selectedAddOnsWithPrices = temporaryBooking.selectedAddOns
-    .map((addonId) => {
-      const addon = addOns.find((a) => a.id === addonId);
-      if (!addon) return null;
-      return {
-        ...addon,
-        convertedPrice: addon.basePrice * rate,
-      };
-    })
-    .filter(Boolean);
-
-  // Get selected insurance with converted price
-  const selectedInsuranceWithPrice = temporaryBooking.selectedInsurance
-    ? insuranceOptions.find(
-        (option) => option.id === temporaryBooking.selectedInsurance
-      )
-    : null;
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -81,7 +48,7 @@ export default function Review() {
     { icon: <Wifi className="h-4 w-4" />, name: "In-flight Wi-Fi" },
     { icon: <Power className="h-4 w-4" />, name: "Power outlets" },
     {
-      icon: <Utensils className="h-4 w-4" />,
+      icon: <UtensilsCrossed className="h-4 w-4" />,
       name: "Complimentary meals",
     },
   ];
@@ -122,29 +89,6 @@ export default function Review() {
     );
   };
 
-  const getPassengerIcon = (type: string) => {
-    switch (type) {
-      case "ADULT":
-        return <UserRound className="h-4 w-4" />;
-      case "CHILD":
-        return <User className="h-4 w-4" />;
-      case "INFANT":
-        return <Baby className="h-4 w-4" />;
-      default:
-        return null;
-    }
-  };
-
-  const renderLayoverInfo = (index: number) => {
-    if (!selectedFlight?.layoverTimes) return null;
-
-    return (
-      <div className="layover-info">
-        Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6 p-4 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -155,16 +99,10 @@ export default function Review() {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-muted-foreground flex items-center justify-end gap-2">
-            <Ticket className="h-4 w-4" />
-            Ticket Price
-          </div>
+          <div className="text-sm text-muted-foreground">Total Price</div>
           <div className="text-2xl font-bold">
             {formatCurrency(
-              temporaryBooking.totalPrice ||
-                selectedFlight.totalPrice ||
-                selectedFlight.price ||
-                0,
+              Number(selectedFlight.totalPrice || selectedFlight.price || 0),
               selectedFlight.currency
             )}
           </div>
@@ -215,8 +153,7 @@ export default function Review() {
                         </span>
                       </div>
                     </div>
-                    <span className="text-white/80 flex items-center gap-1">
-                      <Clock3 className="h-4 w-4" />
+                    <span className="text-white/80">
                       {formatDurationHM(segment.duration)}
                     </span>
                   </div>
@@ -294,7 +231,9 @@ export default function Review() {
                       className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
                       style={{ borderTopStyle: "dashed" }}
                     >
-                      {renderLayoverInfo(index)}
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      Layover:{" "}
+                      {formatDurationHM(selectedFlight.layoverDuration || 0)}
                     </div>
                   )}
               </div>
@@ -328,8 +267,8 @@ export default function Review() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="flex flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -337,28 +276,28 @@ export default function Review() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {temporaryBooking.passengers.map((passenger, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {getPassengerIcon(passenger.type)}
-                    <span className="font-medium">
-                      {passenger.firstName} {passenger.lastName}
-                    </span>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="min-w-[80px] text-center justify-center"
-                  >
-                    {passenger.type}
-                  </Badge>
+            <div className="space-y-2">
+              {!selectedFlight.passengers ||
+              selectedFlight.passengers.length === 0 ? (
+                <div className="text-muted-foreground">
+                  Passenger details will be added in the next step
                 </div>
-              ))}
+              ) : (
+                selectedFlight.passengers.map((passenger, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="font-medium">{passenger.name}</span>
+                    <Badge variant="secondary">{passenger.type}</Badge>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -375,110 +314,6 @@ export default function Review() {
                   {renderAircraftAndBaggageInfo(segment)}
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Selected Add-ons
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col flex-1">
-            {temporaryBooking.selectedInsurance ||
-            selectedAddOnsWithPrices.length > 0 ? (
-              <>
-                {/* Show add-ons first */}
-                {selectedAddOnsWithPrices.map((addon) => (
-                  <div
-                    key={addon.id}
-                    className="flex items-center justify-between py-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <addon.icon className="h-4 w-4 text-primary" />
-                      <span className="font-medium">{addon.name}</span>
-                    </div>
-                    <span className="text-muted-foreground">
-                      {formatCurrency(addon.convertedPrice, currency)}
-                    </span>
-                  </div>
-                ))}
-
-                {/* Show selected insurance after add-ons */}
-                {selectedInsuranceWithPrice && (
-                  <div className="flex items-center justify-between py-2">
-                    <div className="flex items-center gap-2">
-                      <selectedInsuranceWithPrice.icon className="h-5 w-5 text-primary" />
-                      <span className="font-medium">
-                        {selectedInsuranceWithPrice.name}
-                      </span>
-                    </div>
-                    <div className="font-medium">
-                      {formatCurrency(
-                        selectedInsuranceWithPrice.basePrice * rate,
-                        currency
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Add-ons Total */}
-                <div className="mt-auto pt-4 border-t flex justify-between items-center">
-                  <span className="font-medium">Add-ons Total</span>
-                  <span className="font-semibold text-primary">
-                    {formatCurrency(temporaryBooking.addOnsTotal, currency)}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <Package className="h-8 w-8 mb-2 opacity-50" />
-                <p>No add-ons selected</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Ticket className="h-5 w-5" />
-              Price Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col flex-1">
-            <div className="space-y-4 flex-1">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  Base Ticket Price
-                </div>
-                <div className="font-medium">
-                  {formatCurrency(temporaryBooking.basePrice, currency)}
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  Add-ons Total
-                </div>
-                <div className="font-medium">
-                  {formatCurrency(temporaryBooking.addOnsTotal, currency)}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t mt-auto relative">
-              <div className="flex justify-between items-center">
-                <div className="font-semibold">Total Price</div>
-                <div className="text-xl font-bold text-primary">
-                  {formatCurrency(temporaryBooking.totalPrice, currency)}
-                </div>
-              </div>
-              <div className="absolute right-0 -bottom-3.5 text-xs text-muted-foreground">
-                Including all taxes and fees
-              </div>
             </div>
           </CardContent>
         </Card>
