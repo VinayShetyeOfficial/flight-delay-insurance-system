@@ -1,38 +1,77 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Luggage, Utensils, Wifi, Headphones, Car, Sofa } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useFlightStore } from "@/store/flightStore";
-import { useBookingStore } from "@/store/bookingStore";
-import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
-import {
-  Shield,
-  ShieldCheck,
-  ShieldPlus,
-  ChevronDown,
-  Check,
-  Info,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+
+// Base prices in USD
+const addOns = [
+  {
+    id: "extra-baggage",
+    name: "Extra Baggage",
+    description: "Add an extra 23kg to your luggage allowance",
+    basePrice: 50,
+    icon: Luggage,
+  },
+  {
+    id: "gourmet-meal",
+    name: "Gourmet Meal",
+    description: "Enjoy a premium dining experience at 30,000 feet",
+    basePrice: 25,
+    icon: Utensils,
+  },
+  {
+    id: "wifi-access",
+    name: "Wi-Fi Access",
+    description: "Stay connected throughout your flight",
+    basePrice: 15,
+    icon: Wifi,
+  },
+  {
+    id: "entertainment",
+    name: "Entertainment Package",
+    description: "Access to premium movies, TV shows, and games",
+    basePrice: 20,
+    icon: Headphones,
+  },
+  {
+    id: "airport-transfer",
+    name: "Airport Transfer",
+    description: "Comfortable ride from the airport to your hotel",
+    basePrice: 40,
+    icon: Car,
+  },
+  {
+    id: "lounge-access",
+    name: "Lounge Access",
+    description: "Relax in our premium airport lounge before your flight",
+    basePrice: 35,
+    icon: Sofa,
+  },
+];
+
+// Currency conversion rates (as of a recent date)
+const CURRENCY_RATES = {
+  USD: 1, // Base currency
+  EUR: 0.92, // Euro
+  GBP: 0.79, // British Pound
+  JPY: 150.41, // Japanese Yen
+  AUD: 1.52, // Australian Dollar
+  CAD: 1.35, // Canadian Dollar
+  CHF: 0.88, // Swiss Franc
+  CNY: 7.19, // Chinese Yuan
+  INR: 83.12, // Indian Rupee
+  AED: 3.67, // UAE Dirham
+};
 
 export default function AddOns() {
+  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const selectedFlight = useFlightStore((state) => state.selectedFlight);
-  const { updateAddOns, calculateTotalPrice, temporaryBooking } =
-    useBookingStore();
-  const { selectedInsurance, currency } = temporaryBooking;
-
-  // Initialize selectedAddOns from the store's state
-  const [selectedAddOns, setSelectedAddOns] = useState<string[]>(
-    temporaryBooking.selectedAddOns || []
-  );
-
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
-  const [showFeaturesForCard, setShowFeaturesForCard] = useState<string | null>(
-    null
-  );
+  const currency = selectedFlight?.currency || "USD";
 
   const convertPrice = (basePrice: number, targetCurrency: string): number => {
     const rate =
@@ -40,32 +79,10 @@ export default function AddOns() {
     return Math.round(basePrice * rate);
   };
 
-  // Initialize base price and sync with store when component mounts
-  useEffect(() => {
-    if (selectedFlight) {
-      useBookingStore
-        .getState()
-        .setBasePrice(
-          selectedFlight.totalPrice || selectedFlight.price,
-          selectedFlight.currency
-        );
-      calculateTotalPrice();
-    }
-  }, [selectedFlight]);
-
-  // Keep local state in sync with store state
-  useEffect(() => {
-    setSelectedAddOns(temporaryBooking.selectedAddOns);
-  }, [temporaryBooking.selectedAddOns]);
-
   const toggleAddOn = (id: string) => {
-    const newSelectedAddOns = selectedAddOns.includes(id)
-      ? selectedAddOns.filter((item) => item !== id)
-      : [...selectedAddOns, id];
-
-    setSelectedAddOns(newSelectedAddOns);
-    updateAddOns(newSelectedAddOns);
-    calculateTotalPrice();
+    setSelectedAddOns((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -89,15 +106,14 @@ export default function AddOns() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="flex"
             >
               <Card
-                className={`flex-1 flex flex-col ${
+                className={
                   selectedAddOns.includes(addon.id) ? "border-primary" : ""
-                }`}
+                }
               >
-                <CardContent className="p-6 flex flex-col flex-1">
-                  <div className="flex flex-col flex-1">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <addon.icon className="h-5 w-5 text-primary" />
@@ -121,103 +137,6 @@ export default function AddOns() {
             </motion.div>
           );
         })}
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold tracking-tight">Insurance Options</h2>
-        <p className="text-muted-foreground mb-4">
-          Choose the perfect plan for your travel needs
-        </p>
-        <div className="grid gap-4 md:grid-cols-3">
-          {insuranceOptions.map((option, index) => {
-            const convertedPrice = convertPrice(option.basePrice, currency);
-            const showFeatures = showFeaturesForCard === option.id;
-
-            return (
-              <motion.div
-                key={option.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="relative"
-              >
-                <AnimatePresence>
-                  {showFeatures && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute z-10 bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border p-4"
-                    >
-                      <h4 className="font-medium mb-2">Features included:</h4>
-                      <ul className="space-y-2">
-                        {option.features.map((feature, idx) => (
-                          <li
-                            key={idx}
-                            className="flex items-center gap-2 text-sm"
-                          >
-                            <Check className="h-4 w-4 text-primary" />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <Card
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    selectedInsurance === option.id
-                      ? "border-primary bg-primary/5"
-                      : "hover:border-primary/50"
-                  )}
-                  onClick={() => {
-                    useBookingStore
-                      .getState()
-                      .updateInsurance(
-                        selectedInsurance === option.id ? null : option.id
-                      );
-                    calculateTotalPrice();
-                  }}
-                >
-                  <CardContent className="pt-6">
-                    <div className="absolute top-3 right-3">
-                      <Info
-                        className={cn(
-                          "h-5 w-5 cursor-pointer transition-colors",
-                          showFeatures
-                            ? "text-primary"
-                            : "text-muted-foreground",
-                          "hover:text-primary"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowFeaturesForCard(
-                            showFeatures ? null : option.id
-                          );
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <option.icon className="h-5 w-5 text-primary" />
-                        <h3 className="font-medium">{option.name}</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {option.description}
-                      </p>
-                      <p className="text-lg font-bold">
-                        {formatCurrency(convertedPrice, currency)}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
