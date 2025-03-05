@@ -482,17 +482,13 @@ export default function BookingPage() {
 
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
-    const flightKey = `${flight.id}-${searchId}`;
+    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
     return (
       <FlightCard
         key={flightKey}
-        {...flight}
-        passengerCounts={{
-          adults: watch("adults"),
-          children: watch("children"),
-          infants: watch("infants"),
-        }}
         searchId={searchId}
+        {...flight}
+        passengerCounts={passengerCounts}
       />
     );
   };
@@ -1029,6 +1025,34 @@ export default function BookingPage() {
             </div>
           )
         )}
+
+        {/* Insurance Options */}
+        <Card className="mt-8">
+          <div className="p-6 space-y-4">
+            <h4 className="font-medium">Insurance Options</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insuranceOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedInsurance(option.id)}
+                >
+                  <div className="space-y-2">
+                    <h5 className="font-medium">{option.name}</h5>
+                    <p className="text-sm text-muted-foreground">
+                      {option.description}
+                    </p>
+                    <p className="text-lg font-bold">${option.price}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
