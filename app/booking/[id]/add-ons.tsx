@@ -1,25 +1,38 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { formatCurrency } from "@/lib/utils";
 import { useFlightStore } from "@/store/flightStore";
 import { useBookingStore } from "@/store/bookingStore";
-import { addOns, CURRENCY_RATES } from "@/lib/constants";
+import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
+import {
+  Shield,
+  ShieldCheck,
+  ShieldPlus,
+  ChevronDown,
+  Check,
+  Info,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AddOns() {
   const selectedFlight = useFlightStore((state) => state.selectedFlight);
   const { updateAddOns, calculateTotalPrice, temporaryBooking } =
     useBookingStore();
+  const { selectedInsurance, currency } = temporaryBooking;
 
   // Initialize selectedAddOns from the store's state
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>(
     temporaryBooking.selectedAddOns || []
   );
 
-  const currency = selectedFlight?.currency || "USD";
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [showFeaturesForCard, setShowFeaturesForCard] = useState<string | null>(
+    null
+  );
 
   const convertPrice = (basePrice: number, targetCurrency: string): number => {
     const rate =
@@ -108,6 +121,103 @@ export default function AddOns() {
             </motion.div>
           );
         })}
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold tracking-tight">Insurance Options</h2>
+        <p className="text-muted-foreground mb-4">
+          Choose the perfect plan for your travel needs
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {insuranceOptions.map((option, index) => {
+            const convertedPrice = convertPrice(option.basePrice, currency);
+            const showFeatures = showFeaturesForCard === option.id;
+
+            return (
+              <motion.div
+                key={option.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="relative"
+              >
+                <AnimatePresence>
+                  {showFeatures && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute z-10 bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border p-4"
+                    >
+                      <h4 className="font-medium mb-2">Features included:</h4>
+                      <ul className="space-y-2">
+                        {option.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Check className="h-4 w-4 text-primary" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <Card
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                  )}
+                  onClick={() => {
+                    useBookingStore
+                      .getState()
+                      .updateInsurance(
+                        selectedInsurance === option.id ? null : option.id
+                      );
+                    calculateTotalPrice();
+                  }}
+                >
+                  <CardContent className="pt-6">
+                    <div className="absolute top-3 right-3">
+                      <Info
+                        className={cn(
+                          "h-5 w-5 cursor-pointer transition-colors",
+                          showFeatures
+                            ? "text-primary"
+                            : "text-muted-foreground",
+                          "hover:text-primary"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowFeaturesForCard(
+                            showFeatures ? null : option.id
+                          );
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <option.icon className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium">{option.name}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {option.description}
+                      </p>
+                      <p className="text-lg font-bold">
+                        {formatCurrency(convertedPrice, currency)}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
