@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Booking } from "@/types/booking";
-import { addOns, CURRENCY_RATES } from "@/lib/constants";
+import { addOns, insuranceOptions, CURRENCY_RATES } from "@/lib/constants";
 
 interface PassengerInfo {
   firstName: string;
@@ -25,9 +25,11 @@ interface AddOn {
 interface TemporaryBookingState {
   passengers: PassengerInfo[];
   selectedAddOns: string[];
+  selectedInsurance: string | null;
   basePrice: number;
   currency: string;
   totalPrice: number;
+  addOnsTotal: number;
 }
 
 interface BookingState {
@@ -38,6 +40,7 @@ interface BookingState {
   temporaryBooking: TemporaryBookingState;
   updatePassengers: (passengers: PassengerInfo[]) => void;
   updateAddOns: (addOnIds: string[]) => void;
+  updateInsurance: (insuranceId: string | null) => void;
   setBasePrice: (price: number, currency: string) => void;
   calculateTotalPrice: () => number;
   resetTemporaryBooking: () => void;
@@ -46,9 +49,11 @@ interface BookingState {
 const initialTemporaryState: TemporaryBookingState = {
   passengers: [],
   selectedAddOns: [],
+  selectedInsurance: null,
   basePrice: 0,
   currency: "USD",
   totalPrice: 0,
+  addOnsTotal: 0,
 };
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -77,6 +82,13 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         selectedAddOns: addOnIds,
       },
     })),
+  updateInsurance: (insuranceId: string | null) =>
+    set((state) => ({
+      temporaryBooking: {
+        ...state.temporaryBooking,
+        selectedInsurance: insuranceId,
+      },
+    })),
   setBasePrice: (price, currency) =>
     set((state) => ({
       temporaryBooking: {
@@ -87,24 +99,36 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     })),
   calculateTotalPrice: () => {
     const state = get();
-    const { basePrice, selectedAddOns, currency } = state.temporaryBooking;
+    const { basePrice, selectedAddOns, selectedInsurance, currency } =
+      state.temporaryBooking;
 
-    // Calculate add-ons total with currency conversion
-    const addOnsTotal = selectedAddOns.reduce((total, addOnId) => {
+    const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
+
+    // Calculate regular add-ons total with currency conversion
+    const regularAddOnsTotal = selectedAddOns.reduce((total, addOnId) => {
       const addOn = addOns.find((a) => a.id === addOnId);
       if (addOn) {
-        const rate =
-          CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
         return total + addOn.basePrice * rate;
       }
       return total;
     }, 0);
 
-    const totalPrice = basePrice + addOnsTotal;
+    // Calculate insurance cost with currency conversion
+    const insuranceTotal = selectedInsurance
+      ? (insuranceOptions.find((i) => i.id === selectedInsurance)?.basePrice ||
+          0) * rate
+      : 0;
+
+    // Combined total of add-ons and insurance
+    const totalAddOnsPrice = regularAddOnsTotal + insuranceTotal;
+
+    // Final total price
+    const totalPrice = basePrice + totalAddOnsPrice;
 
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
+        addOnsTotal: totalAddOnsPrice,
         totalPrice,
       },
     }));
