@@ -22,7 +22,7 @@ import {
   Clock3,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { addOns, CURRENCY_RATES } from "@/lib/constants";
+import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
 
 // Add the formatDurationHM function
 const formatDurationHM = (minutes: number) => {
@@ -49,12 +49,7 @@ export default function Review() {
   const { selectedFlight } = useFlightStore();
   const { temporaryBooking } = useBookingStore();
   const currency = selectedFlight?.currency || "USD";
-
-  const convertPrice = (basePrice: number, targetCurrency: string): number => {
-    const rate =
-      CURRENCY_RATES[targetCurrency as keyof typeof CURRENCY_RATES] || 1;
-    return Math.round(basePrice * rate);
-  };
+  const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
 
   // Get selected add-ons with converted prices
   const selectedAddOnsWithPrices = temporaryBooking.selectedAddOns
@@ -63,10 +58,17 @@ export default function Review() {
       if (!addon) return null;
       return {
         ...addon,
-        convertedPrice: convertPrice(addon.basePrice, currency),
+        convertedPrice: addon.basePrice * rate,
       };
     })
     .filter(Boolean);
+
+  // Get selected insurance with converted price
+  const selectedInsuranceWithPrice = temporaryBooking.selectedInsurance
+    ? insuranceOptions.find(
+        (option) => option.id === temporaryBooking.selectedInsurance
+      )
+    : null;
 
   if (!selectedFlight) {
     return <div>No flight selected</div>;
@@ -128,6 +130,16 @@ export default function Review() {
       default:
         return null;
     }
+  };
+
+  const renderLayoverInfo = (index: number) => {
+    if (!selectedFlight?.layoverTimes) return null;
+
+    return (
+      <div className="layover-info">
+        Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
+      </div>
+    );
   };
 
   return (
@@ -279,9 +291,7 @@ export default function Review() {
                       className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
                       style={{ borderTopStyle: "dashed" }}
                     >
-                      <Clock className="h-3 w-3 inline mr-1" />
-                      Layover:{" "}
-                      {formatDurationHM(selectedFlight.layoverDuration || 0)}
+                      {renderLayoverInfo(index)}
                     </div>
                   )}
               </div>
@@ -374,42 +384,55 @@ export default function Review() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col flex-1">
-            {selectedAddOnsWithPrices.length > 0 ? (
-              <div className="space-y-4 flex flex-col flex-1">
-                <div className="flex-1">
-                  {selectedAddOnsWithPrices.map((addon) => (
-                    <div
-                      key={addon.id}
-                      className="flex items-center justify-between mb-4"
-                    >
-                      <div className="flex items-center gap-2">
-                        <addon.icon className="h-4 w-4 text-primary" />
-                        <span className="font-medium">{addon.name}</span>
-                      </div>
-                      <span className="text-muted-foreground">
-                        {formatCurrency(addon.convertedPrice, currency)}
-                      </span>
+            {temporaryBooking.selectedInsurance ||
+            selectedAddOnsWithPrices.length > 0 ? (
+              <>
+                {/* Show add-ons first */}
+                {selectedAddOnsWithPrices.map((addon) => (
+                  <div
+                    key={addon.id}
+                    className="flex items-center justify-between py-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <addon.icon className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{addon.name}</span>
                     </div>
-                  ))}
-                </div>
-                <div className="pt-4 border-t mt-auto">
-                  <div className="flex justify-between font-medium">
-                    <span>Add-ons Total</span>
-                    <span>
-                      {formatCurrency(
-                        selectedAddOnsWithPrices.reduce(
-                          (total, addon) => total + addon.convertedPrice,
-                          0
-                        ),
-                        currency
-                      )}
+                    <span className="text-muted-foreground">
+                      {formatCurrency(addon.convertedPrice, currency)}
                     </span>
                   </div>
+                ))}
+
+                {/* Show selected insurance after add-ons */}
+                {selectedInsuranceWithPrice && (
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <selectedInsuranceWithPrice.icon className="h-5 w-5 text-primary" />
+                      <span className="font-medium">
+                        {selectedInsuranceWithPrice.name}
+                      </span>
+                    </div>
+                    <div className="font-medium">
+                      {formatCurrency(
+                        selectedInsuranceWithPrice.basePrice * rate,
+                        currency
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add-ons Total */}
+                <div className="mt-auto pt-4 border-t flex justify-between items-center">
+                  <span className="font-medium">Add-ons Total</span>
+                  <span className="font-semibold text-primary">
+                    {formatCurrency(temporaryBooking.addOnsTotal, currency)}
+                  </span>
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="text-muted-foreground text-sm">
-                No add-ons selected
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <Package className="h-8 w-8 mb-2 opacity-50" />
+                <p>No add-ons selected</p>
               </div>
             )}
           </CardContent>
@@ -438,13 +461,7 @@ export default function Review() {
                   Add-ons Total
                 </div>
                 <div className="font-medium">
-                  {formatCurrency(
-                    selectedAddOnsWithPrices.reduce(
-                      (total, addon) => total + addon.convertedPrice,
-                      0
-                    ),
-                    currency
-                  )}
+                  {formatCurrency(temporaryBooking.addOnsTotal, currency)}
                 </div>
               </div>
             </div>
