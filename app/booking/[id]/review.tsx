@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
+import { useState, useEffect } from "react";
+import { TravelPayoutsLocation } from "@/types";
 
 // Add the formatDurationHM function
 const formatDurationHM = (minutes: number): string => {
@@ -54,6 +56,68 @@ export default function Review() {
   const currency = selectedFlight?.currency || "USD";
   const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
 
+  // Add state for location details
+  const [locationDetails, setLocationDetails] = useState<{
+    [key: string]: TravelPayoutsLocation;
+  }>({});
+
+  // Add useEffect for fetching location details
+  useEffect(() => {
+    const fetchLocationDetails = async () => {
+      const fetchDetails = async (iataCode: string) => {
+        try {
+          const response = await fetch(
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+          );
+          const data = await response.json();
+          const airportResult = data.find(
+            (item: any) => item.type === "airport"
+          );
+          if (airportResult) return airportResult;
+          const cityResult = data.find((item: any) => item.type === "city");
+          if (cityResult) return cityResult;
+          return null;
+        } catch (error) {
+          console.error(`Error fetching details for ${iataCode}:`, error);
+          return null;
+        }
+      };
+
+      const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
+
+      // Fetch details for all segments
+      if (selectedFlight?.segments) {
+        for (const segment of selectedFlight.segments) {
+          if (!newLocationDetails[segment.origin]) {
+            const details = await fetchDetails(segment.origin);
+            if (details) newLocationDetails[segment.origin] = details;
+          }
+          if (!newLocationDetails[segment.destination]) {
+            const details = await fetchDetails(segment.destination);
+            if (details) newLocationDetails[segment.destination] = details;
+          }
+        }
+        setLocationDetails(newLocationDetails);
+      }
+    };
+
+    fetchLocationDetails();
+  }, [selectedFlight?.segments]);
+
+  // Add back the getPassengerIcon function
+  const getPassengerIcon = (type: string) => {
+    switch (type) {
+      case "ADULT":
+        return <UserRound className="h-4 w-4" />;
+      case "CHILD":
+        return <User className="h-4 w-4" />;
+      case "INFANT":
+        return <Baby className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
+
   // Get selected add-ons with converted prices
   const selectedAddOnsWithPrices = temporaryBooking.selectedAddOns
     .map((addonId) => {
@@ -73,10 +137,6 @@ export default function Review() {
       )
     : null;
 
-  if (!selectedFlight) {
-    return <div>No flight selected</div>;
-  }
-
   const amenities = [
     { icon: <Wifi className="h-4 w-4" />, name: "In-flight Wi-Fi" },
     { icon: <Power className="h-4 w-4" />, name: "Power outlets" },
@@ -86,29 +146,168 @@ export default function Review() {
     },
   ];
 
-  const getCityName = (
-    segment: FlightSegment,
-    type: "origin" | "destination"
-  ) => {
-    const code = type === "origin" ? segment.origin : segment.destination;
-    const locationDetail = segment.locationDetails?.[code];
+  const renderFlightSegment = (segment: any, index: number) => {
+    if (!segment) return null;
 
-    // Use the same logic as FlightCard
-    if (locationDetail?.type === "city") {
-      return locationDetail.name;
-    }
+    const originDetails = locationDetails[segment.origin];
+    const destinationDetails = locationDetails[segment.destination];
+
+    // Helper function to get aircraft name
+    const getAircraftName = (aircraft: any) => {
+      if (!aircraft) return "";
+      if (typeof aircraft === "string") return aircraft;
+      return aircraft.type || aircraft.name || "";
+    };
+
+    const getLocationName = (details: any, code: string) => {
+      if (!details) return code;
+      return details.type === "city" ? details.name : details.city_name || code;
+    };
+
+    const getAirportName = (details: any) => {
+      if (!details) return "";
+      return details.type === "city"
+        ? details.main_airport_name
+        : details.name || "";
+    };
+
     return (
-      locationDetail?.city_name ||
-      (type === "origin" ? segment.originCity : segment.destinationCity)
+      <div
+        key={index}
+        className="border-[1px] border-gray-300 rounded-lg overflow-hidden bg-white shadow-[inset_0_0_2px_#00000015]"
+        style={{ borderStyle: "dashed" }}
+      >
+        {/* Header */}
+        <div
+          className="px-4 py-3"
+          style={{
+            backgroundImage:
+              "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          }}
+        >
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
+                <img
+                  src={`https://assets.wego.com/image/upload/h_240,c_fill,f_auto,fl_lossy,q_auto:best,g_auto/v20250220/flights/airlines_square/${String(
+                    segment.airlineCode
+                  ).toLowerCase()}.png`}
+                  alt={String(segment.airline)}
+                  className="h-8 w-8 object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = `/airlines/${String(
+                      segment.airlineCode
+                    ).toLowerCase()}.png`;
+                  }}
+                />
+              </div>
+              <div>
+                <span className="font-medium text-white">
+                  {String(segment.airline)} {String(segment.flightNumber)}
+                </span>
+                <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium">
+                  {String(selectedFlight.cabinClass || "ECONOMY")}
+                </span>
+              </div>
+            </div>
+            <span className="text-white/80">
+              {formatDurationHM(segment.duration)}
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Cities and Flight Path */}
+          <div className="flex items-center justify-between text-muted-foreground">
+            <div>
+              <div className="font-semibold text-base">
+                {segment.origin} (
+                {getLocationName(originDetails, segment.origin)})
+              </div>
+            </div>
+
+            <div className="flex-1 mx-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-gray-400" />
+                <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-400 to-gray-300" />
+                <div className="rounded-full bg-gray-100 p-1">
+                  <Plane className="h-3.5 w-3.5 text-zinc-900 rotate-45" />
+                </div>
+                <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-300 to-gray-400" />
+                <div className="h-2 w-2 rounded-full bg-gray-400" />
+              </div>
+            </div>
+
+            <div>
+              <div className="font-semibold text-base">
+                {segment.destination} (
+                {getLocationName(destinationDetails, segment.destination)})
+              </div>
+            </div>
+          </div>
+
+          {/* Airport Details */}
+          <div className="flex justify-between text-muted-foreground">
+            <div>
+              <div className="text-sm">{getAirportName(originDetails)}</div>
+              <div className="text-xs mt-2">
+                Terminal: {String(segment.terminal?.departure || "-")}
+              </div>
+              <div className="text-xs">{String(segment.departureTime)}</div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-sm">
+                {getAirportName(destinationDetails)}
+              </div>
+              <div className="text-xs mt-2">
+                Terminal: {String(segment.terminal?.arrival || "-")}
+              </div>
+              <div className="text-xs">{String(segment.arrivalTime)}</div>
+            </div>
+          </div>
+
+          {/* Aircraft and Baggage */}
+          <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-4">
+            <div className="flex items-center gap-2">
+              <Plane className="h-3 w-3 shrink-0" />
+              {getAircraftName(segment.aircraft)}
+            </div>
+            {segment.baggage && (
+              <div className="flex items-center gap-2">
+                <Luggage className="h-3 w-3 shrink-0" />
+                {`${segment.baggage.includedCheckedBags}x Checked Bag`}
+                {segment.baggage.includedCabinBags > 0 &&
+                  ` • ${segment.baggage.includedCabinBags}x Cabin Bag`}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Layover */}
+        {index < selectedFlight.segments.length - 1 &&
+          selectedFlight.isLayover && (
+            <div
+              className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
+              style={{ borderTopStyle: "dashed" }}
+            >
+              <Clock className="h-3 w-3 inline mr-1" />
+              Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
+            </div>
+          )}
+      </div>
     );
   };
 
-  const renderAircraftAndBaggageInfo = (segment: FlightSegment) => {
+  // Add renderAircraftAndBaggageInfo function
+  const renderAircraftAndBaggageInfo = (segment: any) => {
     return (
-      <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-4">
+      <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-2">
         <div className="flex items-center gap-2">
           <Plane className="h-3 w-3 shrink-0" />
-          {segment.aircraft}
+          {String(segment.aircraft || "")}
         </div>
         {segment.baggage && (
           <div className="flex items-center gap-2">
@@ -122,28 +321,9 @@ export default function Review() {
     );
   };
 
-  const getPassengerIcon = (type: string) => {
-    switch (type) {
-      case "ADULT":
-        return <UserRound className="h-4 w-4" />;
-      case "CHILD":
-        return <User className="h-4 w-4" />;
-      case "INFANT":
-        return <Baby className="h-4 w-4" />;
-      default:
-        return null;
-    }
-  };
-
-  const renderLayoverInfo = (index: number) => {
-    if (!selectedFlight?.layoverTimes) return null;
-
-    return (
-      <div className="layover-info">
-        Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
-      </div>
-    );
-  };
+  if (!selectedFlight) {
+    return <div>No flight selected</div>;
+  }
 
   return (
     <div className="space-y-6 p-4 max-w-7xl mx-auto">
@@ -180,125 +360,9 @@ export default function Review() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
-            {selectedFlight.segments.map((segment, index) => (
-              <div
-                key={index}
-                className="border-[1px] border-gray-300 rounded-lg overflow-hidden bg-white shadow-[inset_0_0_2px_#00000015]"
-                style={{ borderStyle: "dashed" }}
-              >
-                <div
-                  className="px-4 py-3"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  }}
-                >
-                  <div className="flex items-center justify-between text-white">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-                        <img
-                          src={`https://assets.wego.com/image/upload/h_240,c_fill,f_auto,fl_lossy,q_auto:best,g_auto/v20250220/flights/airlines_square/${segment.airlineCode.toLowerCase()}.png`}
-                          alt={segment.airline}
-                          className="h-8 w-8 object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = `/airlines/${segment.airlineCode.toLowerCase()}.png`;
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">
-                          {segment.airline} {segment.flightNumber}
-                        </span>
-                        <span className="px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium whitespace-nowrap">
-                          {selectedFlight.cabinClass}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-white/80 flex items-center gap-1">
-                      <Clock3 className="h-4 w-4" />
-                      {formatDurationHM(segment.duration)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  {/* First row: IATA codes with city names and flight path */}
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <div>
-                      <div className="font-semibold text-base">
-                        {segment.origin} ({getCityName(segment, "origin")})
-                      </div>
-                    </div>
-
-                    {/* Flight Path Visualization */}
-                    <div className="flex-1 mx-4">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-gray-400" />
-                        <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-400 to-gray-300" />
-                        <div className="rounded-full bg-gray-100 p-1">
-                          <Plane className="h-3.5 w-3.5 text-zinc-900 rotate-45" />
-                        </div>
-                        <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-300 to-gray-400" />
-                        <div className="h-2 w-2 rounded-full bg-gray-400" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="font-semibold text-base">
-                        {segment.destination} (
-                        {getCityName(segment, "destination")})
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Second row: Airport names, terminals and times */}
-                  <div className="flex justify-between text-muted-foreground">
-                    <div>
-                      <div className="text-sm">
-                        {segment.locationDetails?.[segment.origin]?.type ===
-                        "city"
-                          ? segment.locationDetails[segment.origin]
-                              ?.main_airport_name
-                          : segment.locationDetails?.[segment.origin]?.name ||
-                            ""}
-                      </div>
-                      <div className="text-xs mt-2">
-                        Terminal: {segment.terminal?.departure || "-"}
-                      </div>
-                      <div className="text-xs">{segment.departureTime}</div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-sm">
-                        {segment.locationDetails?.[segment.destination]
-                          ?.type === "city"
-                          ? segment.locationDetails[segment.destination]
-                              ?.main_airport_name
-                          : segment.locationDetails?.[segment.destination]
-                              ?.name || ""}
-                      </div>
-                      <div className="text-xs mt-2">
-                        Terminal: {segment.terminal?.arrival || "-"}
-                      </div>
-                      <div className="text-xs">{segment.arrivalTime}</div>
-                    </div>
-                  </div>
-
-                  {renderAircraftAndBaggageInfo(segment)}
-                </div>
-
-                {index < selectedFlight.segments.length - 1 &&
-                  selectedFlight.isLayover && (
-                    <div
-                      className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
-                      style={{ borderTopStyle: "dashed" }}
-                    >
-                      {renderLayoverInfo(index)}
-                    </div>
-                  )}
-              </div>
-            ))}
+            {selectedFlight.segments.map((segment: any, index: number) =>
+              renderFlightSegment(segment, index)
+            )}
           </div>
 
           <Separator />
