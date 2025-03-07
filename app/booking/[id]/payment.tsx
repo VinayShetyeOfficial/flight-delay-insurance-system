@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CreditCard, CheckCircle } from "lucide-react";
+import { useBookingStore } from "@/store/bookingStore";
 
 const paymentSchema = z.object({
   cardNumber: z.string().regex(/^\d{16}$/, "Card number must be 16 digits"),
@@ -34,16 +35,29 @@ const paymentSchema = z.object({
 
 export default function Payment() {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false);
+  const { temporaryBooking } = useBookingStore();
 
   const form = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      cardNumber: "",
-      cardHolder: "",
-      expiryDate: "",
-      cvv: "",
+      cardNumber: "4242424242424242", // Stripe test card number
+      cardHolder: "Test User", // Default cardholder name
+      expiryDate: "12/25", // Future expiry date
+      cvv: "123", // Default CVV
     },
   });
+
+  // Autofill with passenger name if available
+  useEffect(() => {
+    if (temporaryBooking.passengers.length > 0) {
+      const firstPassenger = temporaryBooking.passengers[0];
+      form.setValue(
+        "cardHolder",
+        `${firstPassenger.firstName} ${firstPassenger.lastName}`.trim() ||
+          "Test User"
+      );
+    }
+  }, [temporaryBooking.passengers, form]);
 
   function onSubmit(values: z.infer<typeof paymentSchema>) {
     // Here you would typically process the payment
@@ -81,7 +95,8 @@ export default function Payment() {
             Payment Details
           </CardTitle>
           <CardDescription>
-            Please enter your credit card information
+            This is a test payment environment with pre-filled Stripe test card
+            details
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -94,7 +109,12 @@ export default function Payment() {
                   <FormItem>
                     <FormLabel>Card Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="1234 5678 9012 3456" {...field} />
+                      <Input
+                        placeholder="4242 4242 4242 4242"
+                        {...field}
+                        readOnly
+                        className="cursor-not-allowed bg-muted"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -108,7 +128,12 @@ export default function Payment() {
                   <FormItem>
                     <FormLabel>Cardholder Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input
+                        placeholder="John Doe"
+                        {...field}
+                        readOnly
+                        className="cursor-not-allowed bg-muted"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -123,7 +148,12 @@ export default function Payment() {
                     <FormItem>
                       <FormLabel>Expiry Date</FormLabel>
                       <FormControl>
-                        <Input placeholder="MM/YY" {...field} />
+                        <Input
+                          placeholder="MM/YY"
+                          {...field}
+                          readOnly
+                          className="cursor-not-allowed bg-muted"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -142,6 +172,8 @@ export default function Payment() {
                           type="password"
                           maxLength={4}
                           {...field}
+                          readOnly
+                          className="cursor-not-allowed bg-muted"
                         />
                       </FormControl>
                       <FormMessage />
