@@ -103,9 +103,6 @@ export default function PassengerForm({
               : "INFANT",
         }));
         updatePassengers(typedPassengers);
-
-        // Save passenger data to localStorage
-        localStorage.setItem("passengerData", JSON.stringify(typedPassengers));
       }
     });
 
@@ -219,15 +216,6 @@ function PassengerFormSection({
   number: number;
   form: ReturnType<typeof useForm>;
 }) {
-  // Add this utility function for proper text case
-  const toTitleCase = (str: string) => {
-    return str
-      .toLowerCase()
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   const getPassengerLabel = (t: string, n: number) => {
     if (t === "ADULT") return `Adult ${n}`;
     if (t === "CHILD") return `Child (2-12 years) ${n}`;
@@ -261,14 +249,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("First Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter first name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter first name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -281,14 +262,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("Last Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter last name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter last name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
