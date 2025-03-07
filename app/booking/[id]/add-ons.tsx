@@ -66,22 +66,6 @@ export default function AddOns() {
     setSelectedAddOns(newSelectedAddOns);
     updateAddOns(newSelectedAddOns);
     calculateTotalPrice();
-
-    // Update localStorage with add-ons selection
-    localStorage.setItem("addonsData", JSON.stringify(newSelectedAddOns));
-  };
-
-  const handleInsuranceSelection = (insuranceId: string) => {
-    useBookingStore
-      .getState()
-      .updateInsurance(selectedInsurance === insuranceId ? null : insuranceId);
-    calculateTotalPrice();
-
-    // Store insurance selection in localStorage
-    localStorage.setItem(
-      "selectedInsurance",
-      selectedInsurance === insuranceId ? "" : insuranceId
-    );
   };
 
   return (
@@ -189,7 +173,14 @@ export default function AddOns() {
                       ? "border-primary bg-primary/5"
                       : "hover:border-primary/50"
                   )}
-                  onClick={() => handleInsuranceSelection(option.id)}
+                  onClick={() => {
+                    useBookingStore
+                      .getState()
+                      .updateInsurance(
+                        selectedInsurance === option.id ? null : option.id
+                      );
+                    calculateTotalPrice();
+                  }}
                 >
                   <CardContent className="pt-6">
                     <div className="absolute top-3 right-3">
