@@ -504,31 +504,7 @@ export default function FlightCard(props: FlightCardProps) {
       locationDetails: locationDetails,
     };
 
-    // Add null check for segments before mapping
-    const completeFlightData = {
-      ...flightData,
-      segments: props.segments
-        ? props.segments.map((segment) => ({
-            ...segment,
-            originDetails: locationDetails[segment.origin],
-            destinationDetails: locationDetails[segment.destination],
-            aircraft: {
-              type: segment.aircraft,
-              code: segment.airlineCode,
-            },
-            airline: {
-              name: segment.airline,
-              code: segment.airlineCode,
-            },
-            terminal: segment.terminal,
-            baggage: props.baggage,
-          }))
-        : [flightData.segments[0]], // Use the single segment if no segments array
-    };
-
-    // Store complete data
-    localStorage.setItem("selectedFlight", JSON.stringify(completeFlightData));
-    useFlightStore.getState().setSelectedFlight(completeFlightData);
+    useFlightStore.getState().setSelectedFlight(flightData);
 
     // Ensure we have passengerCounts before proceeding
     if (props.passengerCounts) {
