@@ -65,18 +65,21 @@ model VerificationToken {
 model Booking {
   id           String   @id @default(cuid())
   userId       String
-  flightNumber String
-  departureTime DateTime
-  arrivalTime   DateTime
-  origin        String
-  destination   String
-  price         Float
+  price        Float
+  totalPrice   Float      // Including add-ons and insurance
+  currency     String
+  status       BookingStatus
   insuranceType String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  insurance     Insurance?
-  passengers    Passenger[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  insurance    Insurance?
+  passengers   Passenger[]
+  flight       Flight?
+  addOns       AddOn[]
+  payment      Payment?
+
+  @@index([userId])
 }
 
 model Insurance {
@@ -142,9 +145,70 @@ model Passenger {
   specialRequests String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-
   booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
+}
+
+model Flight {
+  id              String   @id @default(cuid())
+  bookingId       String   @unique
+  airlineCode     String
+  flightNumber    String
+  aircraft        String?
+  cabinClass      String
+  departureTime   DateTime
+  arrivalTime     DateTime
+  origin          String
+  destination     String
+  originTerminal  String?
+  destTerminal    String?
+  duration        Int      // in minutes
+  price           Float
+  currency        String
+  booking         Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+}
+
+model AddOn {
+  id          String   @id @default(cuid())
+  bookingId   String
+  name        String
+  description String?
+  price       Float
+  currency    String
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+}
+
+enum BookingStatus {
+  INITIATED
+  PAYMENT_PENDING
+  PAYMENT_FAILED
+  CONFIRMED
+  CANCELLED
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  bookingId     String       @unique
+  amount        Float
+  currency      String
+  status        PaymentStatus
+  paymentMethod String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
 }
 
