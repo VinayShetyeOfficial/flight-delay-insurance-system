@@ -59,10 +59,56 @@ export default function Payment() {
     }
   }, [temporaryBooking.passengers, form]);
 
+  const handleBookingConfirmation = async () => {
+    // Gather ALL booking data from localStorage
+    const bookingFormData = localStorage.getItem("bookingFormData");
+    const selectedFlight = localStorage.getItem("selectedFlight");
+    const passengerData = localStorage.getItem("passengerData");
+    const addonsData = localStorage.getItem("addonsData");
+    const selectedInsurance = localStorage.getItem("selectedInsurance");
+
+    // Parse all stored data
+    const completeBookingData = {
+      flight: JSON.parse(localStorage.getItem("selectedFlight") || "{}"),
+      passengers: JSON.parse(localStorage.getItem("passengerData") || "[]"),
+      addons: JSON.parse(localStorage.getItem("addonsData") || "[]"),
+      insurance: localStorage.getItem("selectedInsurance"),
+      bookingDetails: JSON.parse(
+        localStorage.getItem("bookingFormData") || "{}"
+      ),
+    };
+
+    try {
+      // Send complete booking data to API
+      const response = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(completeBookingData),
+      });
+
+      if (!response.ok) throw new Error("Failed to create booking");
+
+      // Clear localStorage after successful booking
+      localStorage.removeItem("selectedFlight");
+      localStorage.removeItem("passengerData");
+      localStorage.removeItem("addonsData");
+      localStorage.removeItem("selectedInsurance");
+      localStorage.removeItem("bookingFormData");
+
+      setIsPaymentComplete(true);
+    } catch (error) {
+      console.error("Booking creation failed:", error);
+      // Handle error appropriately
+    }
+  };
+
   function onSubmit(values: z.infer<typeof paymentSchema>) {
-    // Here you would typically process the payment
-    console.log(values);
-    setIsPaymentComplete(true);
+    // Simulate payment processing delay
+    setTimeout(async () => {
+      setIsPaymentComplete(true);
+      // Simulate payment confirmation and persist booking data to Prisma DB
+      await handleBookingConfirmation();
+    }, 1000);
   }
 
   if (isPaymentComplete) {
