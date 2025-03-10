@@ -25,24 +25,27 @@ import { formatCurrency } from "@/lib/utils";
 import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
 
 // Add the formatDurationHM function
-const formatDurationHM = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+const formatDurationHM = (minutes: number): string => {
+  const days = Math.floor(minutes / (24 * 60));
+  const remainingMinutes = minutes % (24 * 60);
+  const hours = Math.floor(remainingMinutes / 60);
+  const mins = remainingMinutes % 60;
 
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    if (remainingHours === 0) {
-      return `${days} ${days === 1 ? "day" : "days"}`;
-    }
-    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
+  let durationString = "";
+
+  if (days > 0) {
+    durationString += `${days} day${days > 1 ? "s" : ""} `;
   }
 
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
+  if (hours > 0 || days > 0) {
+    durationString += `${hours}h `;
   }
 
-  return `${hours}h ${remainingMinutes}m`;
+  if (mins > 0 || (hours === 0 && days === 0)) {
+    durationString += `${mins}m`;
+  }
+
+  return durationString.trim();
 };
 
 export default function Review() {
