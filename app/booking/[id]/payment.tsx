@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,7 +22,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CreditCard, CheckCircle } from "lucide-react";
-import { useBookingStore } from "@/store/bookingStore";
 
 const paymentSchema = z.object({
   cardNumber: z.string().regex(/^\d{16}$/, "Card number must be 16 digits"),
@@ -35,80 +34,21 @@ const paymentSchema = z.object({
 
 export default function Payment() {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false);
-  const { temporaryBooking } = useBookingStore();
 
   const form = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      cardNumber: "4242424242424242", // Stripe test card number
-      cardHolder: "Test User", // Default cardholder name
-      expiryDate: "12/25", // Future expiry date
-      cvv: "123", // Default CVV
+      cardNumber: "",
+      cardHolder: "",
+      expiryDate: "",
+      cvv: "",
     },
   });
 
-  // Autofill with passenger name if available
-  useEffect(() => {
-    if (temporaryBooking.passengers.length > 0) {
-      const firstPassenger = temporaryBooking.passengers[0];
-      form.setValue(
-        "cardHolder",
-        `${firstPassenger.firstName} ${firstPassenger.lastName}`.trim() ||
-          "Test User"
-      );
-    }
-  }, [temporaryBooking.passengers, form]);
-
-  const handleBookingConfirmation = async () => {
-    // Gather ALL booking data from localStorage
-    const bookingFormData = localStorage.getItem("bookingFormData");
-    const selectedFlight = localStorage.getItem("selectedFlight");
-    const passengerData = localStorage.getItem("passengerData");
-    const addonsData = localStorage.getItem("addonsData");
-    const selectedInsurance = localStorage.getItem("selectedInsurance");
-
-    // Parse all stored data
-    const completeBookingData = {
-      flight: JSON.parse(localStorage.getItem("selectedFlight") || "{}"),
-      passengers: JSON.parse(localStorage.getItem("passengerData") || "[]"),
-      addons: JSON.parse(localStorage.getItem("addonsData") || "[]"),
-      insurance: localStorage.getItem("selectedInsurance"),
-      bookingDetails: JSON.parse(
-        localStorage.getItem("bookingFormData") || "{}"
-      ),
-    };
-
-    try {
-      // Send complete booking data to API
-      const response = await fetch("/api/bookings/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(completeBookingData),
-      });
-
-      if (!response.ok) throw new Error("Failed to create booking");
-
-      // Clear localStorage after successful booking
-      localStorage.removeItem("selectedFlight");
-      localStorage.removeItem("passengerData");
-      localStorage.removeItem("addonsData");
-      localStorage.removeItem("selectedInsurance");
-      localStorage.removeItem("bookingFormData");
-
-      setIsPaymentComplete(true);
-    } catch (error) {
-      console.error("Booking creation failed:", error);
-      // Handle error appropriately
-    }
-  };
-
   function onSubmit(values: z.infer<typeof paymentSchema>) {
-    // Simulate payment processing delay
-    setTimeout(async () => {
-      setIsPaymentComplete(true);
-      // Simulate payment confirmation and persist booking data to Prisma DB
-      await handleBookingConfirmation();
-    }, 1000);
+    // Here you would typically process the payment
+    console.log(values);
+    setIsPaymentComplete(true);
   }
 
   if (isPaymentComplete) {
@@ -141,8 +81,7 @@ export default function Payment() {
             Payment Details
           </CardTitle>
           <CardDescription>
-            This is a test payment environment with pre-filled Stripe test card
-            details
+            Please enter your credit card information
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -155,12 +94,7 @@ export default function Payment() {
                   <FormItem>
                     <FormLabel>Card Number</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="4242 4242 4242 4242"
-                        {...field}
-                        readOnly
-                        className="cursor-not-allowed bg-muted"
-                      />
+                      <Input placeholder="1234 5678 9012 3456" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -174,12 +108,7 @@ export default function Payment() {
                   <FormItem>
                     <FormLabel>Cardholder Name</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="John Doe"
-                        {...field}
-                        readOnly
-                        className="cursor-not-allowed bg-muted"
-                      />
+                      <Input placeholder="John Doe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,12 +123,7 @@ export default function Payment() {
                     <FormItem>
                       <FormLabel>Expiry Date</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="MM/YY"
-                          {...field}
-                          readOnly
-                          className="cursor-not-allowed bg-muted"
-                        />
+                        <Input placeholder="MM/YY" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -218,8 +142,6 @@ export default function Payment() {
                           type="password"
                           maxLength={4}
                           {...field}
-                          readOnly
-                          className="cursor-not-allowed bg-muted"
                         />
                       </FormControl>
                       <FormMessage />
