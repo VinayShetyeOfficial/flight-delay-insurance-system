@@ -1,10 +1,5 @@
 import { create } from "zustand";
-import { LocalStorageService, STORAGE_KEYS } from "@/lib/localStorage";
-import type {
-  BookingFormData,
-  FlightDetails,
-  PassengerData,
-} from "@/types/booking";
+import type { Booking } from "@/types/booking";
 import { addOns, insuranceOptions, CURRENCY_RATES } from "@/lib/constants";
 
 interface PassengerInfo {
@@ -18,7 +13,6 @@ interface PassengerInfo {
   phone?: string;
   specialRequests?: string;
   type: "ADULT" | "CHILD" | "INFANT";
-  insuranceBeneficiary?: boolean;
 }
 
 interface AddOn {
@@ -39,9 +33,9 @@ interface TemporaryBookingState {
 }
 
 interface BookingState {
-  bookings: BookingFormData[];
-  setBookings: (bookings: BookingFormData[]) => void;
-  addBooking: (booking: BookingFormData) => void;
+  bookings: Booking[];
+  setBookings: (bookings: Booking[]) => void;
+  addBooking: (booking: Booking) => void;
   updateBookingStatus: (flightNumber: string, status: string) => void;
   temporaryBooking: TemporaryBookingState;
   updatePassengers: (passengers: PassengerInfo[]) => void;
@@ -50,55 +44,6 @@ interface BookingState {
   setBasePrice: (price: number, currency: string) => void;
   calculateTotalPrice: () => number;
   resetTemporaryBooking: () => void;
-  insuranceDetails: {
-    selected: boolean;
-    coverageAmount: number;
-    premium: number;
-    delayThreshold: number; // in hours
-  };
-  calculateInsurancePremium: (flightDetails: FlightDetails) => number;
-  selectedFlight: {
-    segments: Array<{
-      airline: string;
-      airlineCode: string;
-      aircraft: string;
-      origin: string;
-      destination: string;
-      departureTime: string;
-      arrivalTime: string;
-      originDetails?: string;
-      destinationDetails?: string;
-    }>;
-    pricing: {
-      basePrice: number;
-      totalPrice: number;
-      currency: string;
-    };
-    class: string;
-    duration: number;
-  } | null;
-  setSelectedFlight: (
-    flight: {
-      segments: Array<{
-        airline: string;
-        airlineCode: string;
-        aircraft: string;
-        origin: string;
-        destination: string;
-        departureTime: string;
-        arrivalTime: string;
-        originDetails?: string;
-        destinationDetails?: string;
-      }>;
-      pricing: {
-        basePrice: number;
-        totalPrice: number;
-        currency: string;
-      };
-      class: string;
-      duration: number;
-    } | null
-  ) => void;
 }
 
 const initialTemporaryState: TemporaryBookingState = {
@@ -194,17 +139,4 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     set({
       temporaryBooking: initialTemporaryState,
     }),
-  insuranceDetails: {
-    selected: false,
-    coverageAmount: 0,
-    premium: 0,
-    delayThreshold: 2,
-  },
-  calculateInsurancePremium: (flightDetails) => {
-    // Premium calculation logic based on flight details
-    const basePremium = flightDetails.price * 0.05; // 5% of flight price
-    return Math.round(basePremium * 100) / 100;
-  },
-  selectedFlight: null,
-  setSelectedFlight: (flight) => set({ selectedFlight: flight }),
 }));
