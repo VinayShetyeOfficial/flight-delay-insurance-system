@@ -377,44 +377,8 @@ export default function BookingPage() {
       }
 
       setFlights(flights);
+      // Reset pagination to initial count of 5 when new search is performed.
       setDisplayCount(5);
-
-      // Store search booking fields in localStorage
-      const searchParams = {
-        origin: data.origin.trim().toUpperCase(),
-        destination: data.destination.trim().toUpperCase(),
-        departureDate: data.departureDate.toISOString().split("T")[0],
-        returnDate: data.returnDate
-          ? data.returnDate.toISOString().split("T")[0]
-          : undefined,
-        adults: data.adults,
-        children: data.children,
-        infants: data.infants,
-        class: data.class,
-        currency: data.currency,
-        nonStop: nonStop,
-      };
-      localStorage.setItem("bookingSearch", JSON.stringify(searchParams));
-
-      // Store complete booking form data
-      const bookingFormData = {
-        origin: data.origin.trim().toUpperCase(),
-        originName: data.originName,
-        destination: data.destination.trim().toUpperCase(),
-        destinationName: data.destinationName,
-        departureDate: data.departureDate.toISOString().split("T")[0],
-        returnDate: data.returnDate
-          ? data.returnDate.toISOString().split("T")[0]
-          : undefined,
-        adults: data.adults,
-        children: data.children || 0,
-        infants: data.infants || 0,
-        class: data.class,
-        currency: data.currency,
-        tripType: data.tripType,
-        nonStop: nonStop,
-      };
-      localStorage.setItem("bookingFormData", JSON.stringify(bookingFormData));
     } catch (error) {
       console.error("Flight Search Error:", error);
       toast({
