@@ -66,7 +66,7 @@ model Booking {
   id           String   @id @default(cuid())
   userId       String
   price        Float
-  totalPrice   Float      // Including add-ons and insurance
+  totalPrice   Float    
   currency     String
   status       BookingStatus
   insuranceType String?
@@ -75,7 +75,7 @@ model Booking {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   insurance    Insurance?
   passengers   Passenger[]
-  flight       Flight?
+  flights      Flight[]  // Changed to array for multiple flight segments
   addOns       AddOn[]
   payment      Payment?
 
@@ -86,6 +86,7 @@ model Insurance {
   id           String   @id @default(cuid())
   bookingId    String   @unique
   coverageType String
+  packageType  String   // Added for "premium-coverage" etc.
   price        Float
   terms        String
   createdAt    DateTime @default(now())
@@ -137,9 +138,11 @@ model Passenger {
   lastName        String
   dateOfBirth     DateTime
   gender          Gender
+  email          String?       // Added
+  phone          String?       // Added
   passportNumber  String?
   nationality     String?
-  accompaniedBy   String?       // Reference to adult passenger ID
+  accompaniedBy   String?      
   mealPreference  String?
   seatPreference  String?
   specialRequests String?
@@ -151,22 +154,26 @@ model Passenger {
 }
 
 model Flight {
-  id              String   @id @default(cuid())
-  bookingId       String   @unique
-  airlineCode     String
-  flightNumber    String
-  aircraft        String?
-  cabinClass      String
-  departureTime   DateTime
-  arrivalTime     DateTime
-  origin          String
-  destination     String
-  originTerminal  String?
-  destTerminal    String?
-  duration        Int      // in minutes
-  price           Float
-  currency        String
-  booking         Booking  @relation(fields: [bookingId], references: [id])
+  id                String   @id @default(cuid())
+  bookingId         String
+  airlineCode       String
+  flightNumber      String
+  aircraft          Json?    // Changed to Json for complex object
+  cabinClass        String
+  departureTime     DateTime
+  arrivalTime       DateTime
+  origin            String
+  destination       String
+  originTerminal    String?
+  destTerminal      String?
+  duration          Int      
+  price             Float
+  currency          String
+  originDetails     Json?    // Added for airport/city details
+  destinationDetails Json?   // Added for airport/city details
+  isLayover         Boolean  @default(false)  // Added
+  layoverDuration   Int?     // Added
+  booking           Booking  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
 }
@@ -175,6 +182,7 @@ model AddOn {
   id          String   @id @default(cuid())
   bookingId   String
   name        String
+  type        String   // Added for specific add-on types
   description String?
   price       Float
   currency    String
