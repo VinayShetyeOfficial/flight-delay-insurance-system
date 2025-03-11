@@ -113,6 +113,45 @@ export default function Review() {
     fetchLocationDetails();
   }, [selectedFlight?.segments]);
 
+  // Add useEffect to store price breakdown when Review component mounts
+  useEffect(() => {
+    // Calculate add-ons prices
+    const addOnsPrices = temporaryBooking.selectedAddOns.reduce(
+      (acc, addonId) => {
+        const addon = addOns.find((a) => a.id === addonId);
+        if (addon) {
+          acc[addonId] = Number((addon.basePrice * rate).toFixed(3));
+        }
+        return acc;
+      },
+      {} as { [key: string]: number }
+    );
+
+    // Calculate insurance price - Fix the parentheses issue
+    const insurancePrice = temporaryBooking.selectedInsurance
+      ? Number(
+          (
+            insuranceOptions.find(
+              (i) => i.id === temporaryBooking.selectedInsurance
+            )?.basePrice * rate
+          ).toFixed(3) // Move the multiplication by rate inside the parentheses
+        )
+      : 0;
+
+    // Create price breakdown object
+    const priceBreakdown = {
+      baseTicketPrice: Number(temporaryBooking.basePrice.toFixed(3)),
+      addOnsTotal: Number(temporaryBooking.addOnsTotal.toFixed(3)),
+      insurancePrice: insurancePrice,
+      totalPrice: Number(temporaryBooking.totalPrice.toFixed(3)),
+      currency: currency,
+      addOnsPrices: addOnsPrices,
+    };
+
+    // Store in localStorage
+    localStorage.setItem("priceBreakdown", JSON.stringify(priceBreakdown));
+  }, [temporaryBooking, selectedFlight, currency, rate]);
+
   // Add back the getPassengerIcon function
   const getPassengerIcon = (type: string) => {
     switch (type) {
