@@ -177,6 +177,8 @@ class AmadeusService {
               destinationCity:
                 response.data.dictionaries.locations[segment.arrival.iataCode]
                   ?.cityCode || segment.arrival.iataCode,
+              departureDatetime: segment.departure.at,
+              arrivalDatetime: segment.arrival.at,
               departureTime: new Date(
                 segment.departure.at
               ).toLocaleTimeString(),
@@ -212,18 +214,9 @@ class AmadeusService {
               const currentSegment = flightSegments[i];
               const nextSegment = flightSegments[i + 1];
 
-              // Convert times to Date objects for comparison
-              const currentArrival = new Date(
-                `2000/01/01 ${currentSegment.arrivalTime}`
-              );
-              const nextDeparture = new Date(
-                `2000/01/01 ${nextSegment.departureTime}`
-              );
-
-              // If next departure is earlier than arrival, add 24 hours
-              if (nextDeparture < currentArrival) {
-                nextDeparture.setDate(nextDeparture.getDate() + 1);
-              }
+              // Use full datetime strings for accurate calculations
+              const currentArrival = new Date(currentSegment.arrivalDatetime);
+              const nextDeparture = new Date(nextSegment.departureDatetime);
 
               // Calculate difference in minutes
               const layoverMinutes =
@@ -259,6 +252,8 @@ class AmadeusService {
                 arrival:
                   flightSegments[flightSegments.length - 1].terminal.arrival,
               },
+              departureDatetime: segments[0].departure.at,
+              arrivalDatetime: segments[segments.length - 1].arrival.at,
             };
           } else {
             return {
@@ -266,6 +261,8 @@ class AmadeusService {
               ...flightSegments[0],
               locationDetails,
               isLayover: false,
+              departureDatetime: segments[0].departure.at,
+              arrivalDatetime: segments[0].arrival.at,
             };
           }
         })
