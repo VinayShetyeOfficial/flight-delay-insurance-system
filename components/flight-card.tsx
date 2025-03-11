@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFlightStore } from "@/store/flightStore";
+import { useBookingStore } from "@/store/bookingStore";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -777,6 +778,11 @@ export default function FlightCard(props: FlightCardProps) {
 
     useFlightStore.getState().setSelectedFlight(completeFlightData);
     localStorage.setItem("selectedFlight", JSON.stringify(completeFlightData));
+
+    // Initialize base price in booking store
+    useBookingStore
+      .getState()
+      .setBasePrice(props.price, props.currency || "USD");
 
     // Navigate to booking page
     router.push(
