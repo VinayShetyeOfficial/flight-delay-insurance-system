@@ -50,6 +50,13 @@ const formatDurationHM = (minutes: number): string => {
   return durationString.trim();
 };
 
+// Add this helper function at the top level
+const getAircraftName = (aircraft: any) => {
+  if (!aircraft) return "";
+  if (typeof aircraft === "string") return aircraft;
+  return aircraft.type || aircraft.name || "";
+};
+
 export default function Review() {
   const { selectedFlight } = useFlightStore();
   const { temporaryBooking } = useBookingStore();
@@ -151,13 +158,6 @@ export default function Review() {
 
     const originDetails = locationDetails[segment.origin];
     const destinationDetails = locationDetails[segment.destination];
-
-    // Helper function to get aircraft name
-    const getAircraftName = (aircraft: any) => {
-      if (!aircraft) return "";
-      if (typeof aircraft === "string") return aircraft;
-      return aircraft.type || aircraft.name || "";
-    };
 
     const getLocationName = (details: any, code: string) => {
       if (!details) return code;
@@ -301,26 +301,6 @@ export default function Review() {
     );
   };
 
-  // Add renderAircraftAndBaggageInfo function
-  const renderAircraftAndBaggageInfo = (segment: any) => {
-    return (
-      <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-2">
-        <div className="flex items-center gap-2">
-          <Plane className="h-3 w-3 shrink-0" />
-          {String(segment.aircraft || "")}
-        </div>
-        {segment.baggage && (
-          <div className="flex items-center gap-2">
-            <Luggage className="h-3 w-3 shrink-0" />
-            {`${segment.baggage.includedCheckedBags}x Checked Bag`}
-            {segment.baggage.includedCabinBags > 0 &&
-              ` • ${segment.baggage.includedCabinBags}x Cabin Bag`}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   if (!selectedFlight) {
     return <div>No flight selected</div>;
   }
@@ -436,7 +416,20 @@ export default function Review() {
                   <div className="text-sm font-medium">
                     {segment.origin} → {segment.destination}
                   </div>
-                  {renderAircraftAndBaggageInfo(segment)}
+                  <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between">
+                    <div className="flex items-center gap-2">
+                      <Plane className="h-3 w-3 shrink-0" />
+                      {getAircraftName(segment.aircraft)}
+                    </div>
+                    {segment.baggage && (
+                      <div className="flex items-center gap-2">
+                        <Luggage className="h-3 w-3 shrink-0" />
+                        {`${segment.baggage.includedCheckedBags}x Checked Bag`}
+                        {segment.baggage.includedCabinBags > 0 &&
+                          ` • ${segment.baggage.includedCabinBags}x Cabin Bag`}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
