@@ -13,7 +13,12 @@ import {
   Calendar,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration, formatCurrency } from "@/lib/utils";
+import {
+  getCurrencySymbol,
+  formatDuration,
+  formatCurrency,
+  formatCustomDate,
+} from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -263,31 +268,6 @@ interface TravelPayoutsLocation {
 }
 
 // Add this helper function at the top of the file
-const formatCustomDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const day = date.getDate();
-  const month = date.toLocaleString("en-US", { month: "short" });
-  const year = date.getFullYear();
-
-  // Add ordinal suffix
-  const suffix = (day: number) => {
-    if (day > 3 && day < 21) return "th";
-    switch (day % 10) {
-      case 1:
-        return "st";
-      case 2:
-        return "nd";
-      case 3:
-        return "rd";
-      default:
-        return "th";
-    }
-  };
-
-  return `${month} ${day}${suffix(day)}, ${year}`;
-};
-
-// Add this helper function near the top of the file
 const AirlineLogo = ({
   airlineCode,
   airline,
@@ -485,20 +465,11 @@ export default function FlightCard(props: FlightCardProps) {
   };
 
   const handleSelect = () => {
-    const flightData = {
+    const completeFlightData = {
       segments: props.isLayover
         ? props.segments.map((segment) => ({
             ...segment,
-            originCity:
-              locationDetails[segment.origin]?.city_name || segment.originCity,
-            destinationCity:
-              locationDetails[segment.destination]?.city_name ||
-              segment.destinationCity,
-            locationDetails: locationDetails,
-            baggage: {
-              includedCheckedBags: props.baggage?.includedCheckedBags || 0,
-              includedCabinBags: props.baggage?.includedCabinBags || 0,
-            },
+            baggage: props.baggage, // Ensure baggage is passed to each segment
           }))
         : [
             {
@@ -506,22 +477,22 @@ export default function FlightCard(props: FlightCardProps) {
               airlineCode: props.airlineCode,
               flightNumber: props.flightNumber,
               origin: props.origin,
-              originCity:
-                locationDetails[props.origin]?.city_name || props.originCity,
+              originCity: props.originCity,
               destination: props.destination,
-              destinationCity:
-                locationDetails[props.destination]?.city_name ||
-                props.destinationCity,
+              destinationCity: props.destinationCity,
               departureTime: props.departureTime,
               arrivalTime: props.arrivalTime,
               duration: props.duration,
               terminal: props.terminal,
               aircraft: props.aircraft,
               locationDetails: locationDetails,
-              baggage: {
-                includedCheckedBags: props.baggage?.includedCheckedBags || 0,
-                includedCabinBags: props.baggage?.includedCabinBags || 0,
-              },
+              baggage: props.baggage
+                ? {
+                    ...props.baggage,
+                    includedCheckedBags: props.baggage.includedCheckedBags || 0,
+                    includedCabinBags: props.baggage.includedCabinBags || 0,
+                  }
+                : undefined,
             },
           ],
       isLayover: props.isLayover,
@@ -533,31 +504,6 @@ export default function FlightCard(props: FlightCardProps) {
       totalDuration: props.duration,
       locationDetails: locationDetails,
     };
-
-    // Add null check for segments before mapping
-    const completeFlightData = {
-      ...flightData,
-      segments: props.segments
-        ? props.segments.map((segment) => ({
-            ...segment,
-            originDetails: locationDetails[segment.origin],
-            destinationDetails: locationDetails[segment.destination],
-            aircraft: {
-              type: segment.aircraft,
-              code: segment.airlineCode,
-            },
-            airline: {
-              name: segment.airline,
-              code: segment.airlineCode,
-            },
-            terminal: segment.terminal,
-            baggage: props.baggage,
-          }))
-        : [flightData.segments[0]], // Use the single segment if no segments array
-    };
-
-    // Store complete data
-    localStorage.setItem("selectedFlight", JSON.stringify(completeFlightData));
     useFlightStore.getState().setSelectedFlight(completeFlightData);
 
     // Ensure we have passengerCounts before proceeding
