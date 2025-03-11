@@ -1013,7 +1013,7 @@ export default function BookingPage() {
         {/* Flight Results */}
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <FlightCardSkeleton key={i} />
             ))}
           </div>
