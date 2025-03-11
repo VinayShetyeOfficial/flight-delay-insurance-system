@@ -10,6 +10,7 @@ import {
   Wifi,
   Power,
   Coffee,
+  Calendar,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getCurrencySymbol, formatDuration, formatCurrency } from "@/lib/utils";
@@ -39,6 +40,8 @@ interface FlightSegment {
   };
   aircraft?: string;
   status?: string;
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // The FlightCardProps now optionally include layover flight details and a searchId.
@@ -83,6 +86,8 @@ interface FlightCardProps {
     children: number;
     infants: number;
   };
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // Debug function for direct flights.
@@ -257,6 +262,31 @@ interface TravelPayoutsLocation {
   main_airport_name?: string;
 }
 
+// Add this helper function at the top of the file
+const formatCustomDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const day = date.getDate();
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const year = date.getFullYear();
+
+  // Add ordinal suffix
+  const suffix = (day: number) => {
+    if (day > 3 && day < 21) return "th";
+    switch (day % 10) {
+      case 1:
+        return "st";
+      case 2:
+        return "nd";
+      case 3:
+        return "rd";
+      default:
+        return "th";
+    }
+  };
+
+  return `${month} ${day}${suffix(day)}, ${year}`;
+};
+
 // Add this helper function near the top of the file
 const AirlineLogo = ({
   airlineCode,
@@ -301,16 +331,16 @@ export function FlightCardSkeleton() {
       >
         {/* Airline logo and name */}
         <div className="flex items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-full bg-white/20" />
+          <Skeleton className="h-12 w-12 rounded-full bg-white/30" />
           <div className="space-y-2">
-            <Skeleton className="h-6 w-32 bg-white/20" />
-            <Skeleton className="h-4 w-24 bg-white/20" />
+            <Skeleton className="h-6 w-32 bg-white/30" />
+            <Skeleton className="h-4 w-24 bg-white/30" />
           </div>
         </div>
         {/* Price */}
         <div className="text-right">
-          <Skeleton className="h-8 w-28 bg-white/20 mb-1" />
-          <Skeleton className="h-4 w-20 bg-white/20 ml-auto" />
+          <Skeleton className="h-8 w-28 bg-white/30 mb-1" />
+          <Skeleton className="h-4 w-20 bg-white/30 ml-auto" />
         </div>
       </div>
 
@@ -604,9 +634,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div>
             <p className="text-2xl font-bold">{props.departureTime}</p>
             <p className="font-medium">({props.origin})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.departure || "D"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.departure || "D"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.departureDatetime)}
+              </div>
             </div>
           </div>
 
@@ -636,9 +672,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div className="text-right">
             <p className="text-2xl font-bold">{props.arrivalTime}</p>
             <p className="font-medium">({props.destination})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.arrival || "B"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1 items-end">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.arrival || "B"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.arrivalDatetime)}
+              </div>
             </div>
           </div>
         </div>
@@ -822,10 +864,16 @@ export default function FlightCard(props: FlightCardProps) {
                                       ?.main_airport_name
                                   : locationDetails[segment.origin]?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.departure || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.departureDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.departureTime}
                               </div>
                             </div>
@@ -839,10 +887,16 @@ export default function FlightCard(props: FlightCardProps) {
                                   : locationDetails[segment.destination]
                                       ?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.arrival || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.arrivalDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.arrivalTime}
                               </div>
                             </div>
@@ -969,10 +1023,18 @@ export default function FlightCard(props: FlightCardProps) {
                                     ?.main_airport_name
                                 : locationDetails[props.origin]?.name || ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.departure || "-"}
                             </div>
-                            <div className="text-xs">{props.departureTime}</div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.departureDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {props.departureTime}
+                            </div>
                           </div>
 
                           <div className="text-right">
@@ -984,10 +1046,18 @@ export default function FlightCard(props: FlightCardProps) {
                                 : locationDetails[props.destination]?.name ||
                                   ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.arrival || "-"}
                             </div>
-                            <div className="text-xs">{props.arrivalTime}</div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.arrivalDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Clock className="h-3 w-3" />
+                              {props.arrivalTime}
+                            </div>
                           </div>
                         </div>
 
