@@ -30,6 +30,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useFlightStore } from "@/store/flightStore";
 import { useBookingStore } from "@/store/bookingStore";
+import { toast } from "@/components/ui/use-toast";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -466,6 +467,21 @@ export default function FlightCard(props: FlightCardProps) {
   };
 
   const handleSelect = () => {
+    // Get current user from localStorage
+    const currentUser = JSON.parse(
+      localStorage.getItem("current_user") || "{}"
+    );
+    if (!currentUser.id) {
+      console.error("No user ID found");
+      toast({
+        title: "Error",
+        description: "Please log in to select a flight",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+
     const validateLocationDetails = (location: any, code: string) => {
       if (!location) return null;
       // For cities, we want to include both city and airport information
@@ -776,20 +792,27 @@ export default function FlightCard(props: FlightCardProps) {
       })),
     });
 
+    // Store in flightStore
     useFlightStore.getState().setSelectedFlight(completeFlightData);
-    localStorage.setItem("selectedFlight", JSON.stringify(completeFlightData));
+
+    // Store in localStorage with user ID
+    localStorage.setItem(
+      `user_data_${currentUser.id}_selectedFlight`,
+      JSON.stringify(completeFlightData)
+    );
 
     // Initialize base price in booking store
     useBookingStore
       .getState()
       .setBasePrice(props.price, props.currency || "USD");
 
-    // Navigate to booking page
+    // Navigate to booking page with user ID
     router.push(
       `/booking/${props.id}?${new URLSearchParams({
         adults: completeFlightData.passengers.adults.toString(),
         children: completeFlightData.passengers.children.toString(),
         infants: completeFlightData.passengers.infants.toString(),
+        userId: currentUser.id,
       }).toString()}`
     );
   };
