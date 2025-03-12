@@ -1,0 +1,1 @@
+https://developers.amadeus.com/self-service/category/flights/api-doc/flight-offers-price
