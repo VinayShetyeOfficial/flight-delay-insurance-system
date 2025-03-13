@@ -1,0 +1,238 @@
+QUICK START:
+------------
+
+Link: https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/quick-start/#creating-the-request
+
+REQUEST EXMPLE:
+---------------
+vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
+$ curl 'https://test.api.amadeus.com/v1/shopping/flight-destinations?origin=PAR&maxPrice=200' \
+      -H 'Authorization: Bearer ABCDEFGH12345'
+
+            {
+                "errors": [
+                        {
+                            "code": 38190,
+                            "title": "Invalid access token",
+                            "detail": "The access token provided in the Authorization header is invalid",
+                            "status": 401
+                        }
+                ]
+            }
+
+vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
+$ curl 'https://test.api.amadeus.com/v1/shopping/flight-destinations?origin=PAR&maxPrice=200' \
+      -H 'Authorization: Bearer QaUiZESEZY2LNtvKK4G9o3zk2dLw'
+
+{
+  "data": [
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "MAD",
+      "departureDate": "2025-02-25",
+      "returnDate": "2025-03-11",
+      "price": {
+        "total": "102.91"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=MAD&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=MAD&departureDate=2025-02-25&returnDate=2025-03-11&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "OPO",
+      "departureDate": "2025-02-25",
+      "returnDate": "2025-03-12",
+      "price": {
+        "total": "117.89"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=OPO&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=OPO&departureDate=2025-02-25&returnDate=2025-03-12&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "LIS",
+      "departureDate": "2025-03-17",
+      "returnDate": "2025-04-01",
+      "price": {
+        "total": "123.78"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=LIS&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=LIS&departureDate=2025-03-17&returnDate=2025-04-01&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "LIN",
+      "departureDate": "2025-02-25",
+      "returnDate": "2025-03-11",
+      "price": {
+        "total": "130.68"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=LIN&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=LIN&departureDate=2025-02-25&returnDate=2025-03-11&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "CDG",
+      "destination": "FCO",
+      "departureDate": "2025-02-26",
+      "returnDate": "2025-03-04",
+      "price": {
+        "total": "145.60"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=FCO&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=FCO&departureDate=2025-02-26&returnDate=2025-03-04&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "BCN",
+      "departureDate": "2025-03-30",
+      "returnDate": "2025-04-01",
+      "price": {
+        "total": "152.76"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=BCN&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=BCN&departureDate=2025-03-30&returnDate=2025-04-01&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "ORY",
+      "destination": "RAK",
+      "departureDate": "2025-03-05",
+      "returnDate": "2025-03-20",
+      "price": {
+        "total": "155.43"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=RAK&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=RAK&departureDate=2025-03-05&returnDate=2025-03-20&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "CDG",
+      "destination": "TUN",
+      "departureDate": "2025-03-02",
+      "returnDate": "2025-03-07",
+      "price": {
+        "total": "171.22"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=TUN&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=TUN&departureDate=2025-03-02&returnDate=2025-03-07&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "CDG",
+      "destination": "ATH",
+      "departureDate": "2025-02-27",
+      "returnDate": "2025-03-04",
+      "price": {
+        "total": "184.37"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=ATH&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=ATH&departureDate=2025-02-27&returnDate=2025-03-04&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    },
+    {
+      "type": "flight-destination",
+      "origin": "CDG",
+      "destination": "SAW",
+      "departureDate": "2025-03-21",
+      "returnDate": "2025-04-04",
+      "price": {
+        "total": "188.24"
+      },
+      "links": {
+        "flightDates": "https://test.api.amadeus.com/v1/shopping/flight-dates?origin=PAR&destination=SAW&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&currency=EUR&viewBy=DURATION",
+        "flightOffers": "https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode=PAR&destinationLocationCode=SAW&departureDate=2025-03-21&returnDate=2025-04-04&adults=1&nonStop=false&maxPrice=200&currency=EUR"
+      }
+    }
+  ],
+  "dictionaries": {
+    "currencies": {
+      "EUR": "EURO"
+    },
+    "locations": {
+      "LIN": {
+        "subType": "AIRPORT",
+        "detailedName": "LINATE"
+      },
+      "MAD": {
+        "subType": "AIRPORT",
+        "detailedName": "ADOLFO SUAREZ BARAJAS"
+      },
+      "FCO": {
+        "subType": "AIRPORT",
+        "detailedName": "FIUMICINO"
+      },
+      "ATH": {
+        "subType": "AIRPORT",
+        "detailedName": "ATHENS INT E VENIZELOS"
+      },
+      "ORY": {
+        "subType": "AIRPORT",
+        "detailedName": "ORLY"
+      },
+      "LIS": {
+        "subType": "AIRPORT",
+        "detailedName": "AIRPORT"
+      },
+      "CDG": {
+        "subType": "AIRPORT",
+        "detailedName": "CHARLES DE GAULLE"
+      },
+      "SAW": {
+        "subType": "AIRPORT",
+        "detailedName": "SABIHA GOKCEN"
+      },
+      "TUN": {
+        "subType": "AIRPORT",
+        "detailedName": "CARTHAGE"
+      },
+      "BCN": {
+        "subType": "AIRPORT",
+        "detailedName": "AIRPORT"
+      },
+      "RAK": {
+        "subType": "AIRPORT",
+        "detailedName": "MENARA"
+      },
+      "OPO": {
+        "subType": "AIRPORT",
+        "detailedName": "FRANCISCO SA CARNEIRO"
+      }
+    }
+  },
+  "meta": {
+    "currency": "EUR",
+    "links": {
+      "self": "https://test.api.amadeus.com/v1/shopping/flight-destinations?origin=PAR&departureDate=2025-02-16,2025-08-14&oneWay=false&duration=1,15&nonStop=false&maxPrice=200&viewBy=DESTINATION"
+    },
+    "defaults": {
+      "departureDate": "2025-02-16,2025-08-14",
+      "oneWay": false,
+      "duration": "1,15",
+      "nonStop": false,
+      "viewBy": "DESTINATION"
+    }
+  }
+}
