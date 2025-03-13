@@ -21,12 +21,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CreditCard, CheckCircle, TriangleAlert } from "lucide-react";
+import { CreditCard, CheckCircle } from "lucide-react";
 import { useBookingStore } from "@/store/bookingStore";
 import { ClassicSpinner } from "react-spinners-kit";
 import { useRouter } from "next/navigation";
-import { createCompleteBooking } from "@/lib/bookingService";
-import { useSession } from "next-auth/react";
 
 const paymentSchema = z.object({
   cardNumber: z.string().regex(/^\d{16}$/, "Card number must be 16 digits"),
@@ -40,8 +38,6 @@ const paymentSchema = z.object({
 export default function Payment() {
   const [isPaymentComplete, setIsPaymentComplete] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { data: session, status } = useSession({ required: true });
   const { temporaryBooking } = useBookingStore();
   const router = useRouter();
 
@@ -67,94 +63,63 @@ export default function Payment() {
     }
   }, [temporaryBooking.passengers, form]);
 
-  // Add session status check
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/auth/signin?callbackUrl=/booking/payment");
-    }
-  }, [status, router]);
-
-  // Show loading state while session is loading
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-[350px]">
-        <ClassicSpinner size={30} color="#000" />
-      </div>
-    );
-  }
-
   const handleBookingConfirmation = async () => {
+    // Gather ALL booking data from localStorage
+    const bookingFormData = localStorage.getItem("bookingFormData");
+    const selectedFlight = localStorage.getItem("selectedFlight");
+    const passengerData = localStorage.getItem("passengerData");
+    const addonsData = localStorage.getItem("addonsData");
+    const selectedInsurance = localStorage.getItem("selectedInsurance");
+
+    // Parse all stored data
+    const completeBookingData = {
+      flight: JSON.parse(localStorage.getItem("selectedFlight") || "{}"),
+      passengers: JSON.parse(localStorage.getItem("passengerData") || "[]"),
+      addons: JSON.parse(localStorage.getItem("addonsData") || "[]"),
+      insurance: localStorage.getItem("selectedInsurance"),
+      bookingDetails: JSON.parse(
+        localStorage.getItem("bookingFormData") || "{}"
+      ),
+    };
+
     try {
-      if (status !== "authenticated" || !session?.user?.id) {
-        router.push("/auth/signin?callbackUrl=/booking/payment");
-        throw new Error("Please sign in to complete your booking");
-      }
+      // Send complete booking data to API
+      const response = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(completeBookingData),
+      });
 
-      // Get stored booking data
-      const bookingData = JSON.parse(
-        localStorage.getItem(`user_data_${session.user.id}_booking`) || "{}"
-      );
+      if (!response.ok) throw new Error("Failed to create booking");
 
-      const selectedFlight = JSON.parse(
-        localStorage.getItem(`user_data_${session.user.id}_selectedFlight`) ||
-          "{}"
-      );
-
-      const completeBookingData = {
-        flight: selectedFlight,
-        ...bookingData,
-      };
-
-      const booking = await createCompleteBooking(
-        session.user.id,
-        completeBookingData
-      );
-
-      if (!booking) {
-        throw new Error("Failed to create booking");
-      }
-
-      // Clear only the user-specific data
-      localStorage.removeItem(`user_data_${session.user.id}_booking`);
-      localStorage.removeItem(`user_data_${session.user.id}_selectedFlight`);
+      // Clear localStorage after successful booking
+      localStorage.removeItem("selectedFlight");
+      localStorage.removeItem("passengerData");
+      localStorage.removeItem("addonsData");
+      localStorage.removeItem("selectedInsurance");
+      localStorage.removeItem("bookingFormData");
 
       setIsPaymentComplete(true);
-      return booking;
     } catch (error) {
       console.error("Booking creation failed:", error);
-      throw error;
+      // Handle error appropriately
     }
   };
 
-  async function onSubmit(values: z.infer<typeof paymentSchema>) {
-    setIsProcessing(true);
-    setError(null);
+  function onSubmit(values: z.infer<typeof paymentSchema>) {
+    setIsProcessing(true); // Start processing state
 
-    try {
-      // Log the data being sent
-      console.log("Payment data:", {
-        selectedFlight: localStorage.getItem("selectedFlight"),
-        passengerData: localStorage.getItem("passengerData"),
-        addonsData: localStorage.getItem("addonsData"),
-        selectedInsurance: localStorage.getItem("selectedInsurance"),
-        priceBreakdown: localStorage.getItem("priceBreakdown"),
-      });
+    // Generate random time between 5000ms (5s) and 12000ms (12s)
+    const randomProcessingTime = Math.floor(
+      Math.random() * (12000 - 5000 + 1) + 5000
+    );
 
-      // Simulate payment processing
-      await new Promise((resolve) =>
-        setTimeout(resolve, Math.random() * (12000 - 5000) + 5000)
-      );
-
-      const booking = await handleBookingConfirmation();
-      console.log("Booking confirmed:", booking);
-
+    // Simulate payment processing with random delay
+    setTimeout(async () => {
+      await handleBookingConfirmation();
+      setIsProcessing(false); // End processing state
       setIsPaymentComplete(true);
-    } catch (error) {
-      console.error("Payment processing failed:", error);
-      setError(error instanceof Error ? error.message : "Payment failed");
-    } finally {
-      setIsProcessing(false);
-    }
+    }, randomProcessingTime);
   }
 
   if (isProcessing) {
@@ -190,26 +155,6 @@ export default function Payment() {
               className="bg-black hover:bg-black/90 text-white"
             >
               Go to Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="relative min-h-[350px]">
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full">
-          <div className="text-center">
-            <TriangleAlert className="h-20 w-20 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4">Payment Failed</h2>
-            <p className="text-muted-foreground mb-6">{error}</p>
-            <Button
-              onClick={() => setError(null)}
-              className="bg-black hover:bg-black/90 text-white"
-            >
-              Try Again
             </Button>
           </div>
         </div>
