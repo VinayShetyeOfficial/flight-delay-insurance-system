@@ -1,0 +1,125 @@
+Airport and City Search API
+---------------------------
+
+Link: https://developers.amadeus.com/self-service/category/flights/api-doc/airport-and-city-search/api-reference
+
+Site Parameters:
+----------------
+Required Parameters
+subType* → AIRPORT,CITY
+(Defines the type of location: Airport and/or City.)
+keyword* → MUC
+(Represents the start of a word in a city or airport name or code. Allowed characters: A-Za-z0-9./:-'()")
+Optional Parameters
+countryCode → {countryCode}
+(Country code in ISO 3166-1 alpha-2 format, e.g., US, IN, FR.)
+page[limit] → 10
+(Maximum number of items to retrieve per page.)
+page[offset] → 0
+(Start index of the requested page.)
+sort → analytics.travelers.score
+(Sorts by the number of travelers, ranking highest traffic airports/cities first.)
+view → FULL
+(Controls the level of response details:)
+LIGHT → Returns IATA Code, Name, Detailed Name, City Name, and Country Name.
+FULL → Includes all LIGHT details plus TimeZone Offset, Geocode, Detailed Address, and Travelers Score (Default option).
+
+
+REQUEST EXMPLE:
+---------------
+[1] Subtype of location: AIRPORT
+
+vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
+curl 'https://test.api.amadeus.com/v1/reference-data/locations?subType=AIRPORT&keyword=MUC&page%5Blimit%5D=5&page%5Boffset%5D=0&sort=analytics.travelers.score&view=FULL' \
+     -H 'Authorization: Bearer QaUiZESEZY2LNtvKK4G9o3zk2dLw'
+
+{
+  "meta": {
+    "count": 1,
+    "links": {
+      "self": "https://test.api.amadeus.com/v1/reference-data/locations?subType=AIRPORT&keyword=MUC&sort=analytics.travelers.score&view=FULL&page%5Boffset%5D=0&page%5Blimit%5D=5"
+    }
+  },
+  "data": [
+    {
+      "type": "location",
+      "subType": "AIRPORT",
+      "name": "MUNICH INTERNATIONAL",
+      "detailedName": "MUNICH/DE:MUNICH INTERNATIONAL",
+      "id": "AMUC",
+      "self": {
+        "href": "https://test.api.amadeus.com/v1/reference-data/locations/AMUC",
+        "methods": [
+          "GET"
+        ]
+      },
+      "timeZoneOffset": "+01:00",
+      "iataCode": "MUC",
+      "geoCode": {
+        "latitude": 48.35389,
+        "longitude": 11.78612
+      },
+      "address": {
+        "cityName": "MUNICH",
+        "cityCode": "MUC",
+        "countryName": "GERMANY",
+        "countryCode": "DE",
+        "regionCode": "EUROP"
+      },
+      "analytics": {
+        "travelers": {
+          "score": 27
+        }
+      }
+    }
+  ]
+}
+
+[2] Subtype of location: CITY
+-----------------------------
+
+vinay@ROG-Strix-G16 MINGW64 /e/Github Projects/2. React Projects/Flight Delay Insurance System/my-app/flight-delay-insurance  
+curl 'https://test.api.amadeus.com/v1/reference-data/locations?subType=CITY&keyword=MUC&page%5Blimit%5D=10&page%5Boffset%5D=0&sort=analytics.travelers.score&view=FULL' \
+     -H 'Authorization: Bearer QaUiZESEZY2LNtvKK4G9o3zk2dLw'
+
+{
+  "meta": {
+    "count": 1,
+    "links": {
+      "self": "https://test.api.amadeus.com/v1/reference-data/locations?subType=CITY&keyword=MUC&sort=analytics.travelers.score&view=FULL&page%5Boffset%5D=0&page%5Blimit%5D=10"
+    }
+  },
+  "data": [
+    {
+      "type": "location",
+      "subType": "CITY",
+      "name": "MUNICH",
+      "detailedName": "MUNICH/DE",
+      "id": "CMUC",
+      "self": {
+        "href": "https://test.api.amadeus.com/v1/reference-data/locations/CMUC",
+        "methods": [
+          "GET"
+        ]
+      },
+      "timeZoneOffset": "+01:00",
+      "iataCode": "MUC",
+      "geoCode": {
+        "latitude": 48.35389,
+        "longitude": 11.78612
+      },
+      "address": {
+        "cityName": "MUNICH",
+        "cityCode": "MUC",
+        "countryName": "GERMANY",
+        "countryCode": "DE",
+        "regionCode": "EUROP"
+      },
+      "analytics": {
+        "travelers": {
+          "score": 27
+        }
+      }
+    }
+  ]
+}
