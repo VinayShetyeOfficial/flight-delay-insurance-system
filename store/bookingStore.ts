@@ -38,15 +38,6 @@ interface TemporaryBookingState {
   addOnsTotal: number;
 }
 
-interface PriceBreakdown {
-  baseTicketPrice: number;
-  addOnsTotal: number;
-  insurancePrice: number;
-  totalPrice: number;
-  currency: string;
-  addOnsPrices: { [key: string]: number }; // Individual add-on prices
-}
-
 interface BookingState {
   bookings: BookingFormData[];
   setBookings: (bookings: BookingFormData[]) => void;
@@ -108,12 +99,6 @@ interface BookingState {
       duration: number;
     } | null
   ) => void;
-  convertPrice: (
-    price: number,
-    fromCurrency: string,
-    toCurrency: string
-  ) => number;
-  updatePriceBreakdown: (priceBreakdown: PriceBreakdown) => void;
 }
 
 const initialTemporaryState: TemporaryBookingState = {
@@ -124,15 +109,6 @@ const initialTemporaryState: TemporaryBookingState = {
   currency: "USD",
   totalPrice: 0,
   addOnsTotal: 0,
-};
-
-const initialPriceBreakdown: PriceBreakdown = {
-  baseTicketPrice: 0,
-  addOnsTotal: 0,
-  insurancePrice: 0,
-  totalPrice: 0,
-  currency: "USD",
-  addOnsPrices: {},
 };
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -147,102 +123,27 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       ),
     })),
   temporaryBooking: initialTemporaryState,
-  updatePassengers: (passengers) => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-    if (!currentUser.id) return;
-
-    const bookingData = JSON.parse(
-      localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-    );
-
-    const updatedBookingData = {
-      ...bookingData,
-      passengers,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    localStorage.setItem(
-      `user_data_${currentUser.id}_booking`,
-      JSON.stringify(updatedBookingData)
-    );
-
+  updatePassengers: (passengers) =>
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
         passengers,
       },
-    }));
-  },
-  updateAddOns: (addOnIds) => {
-    const state = get();
-    const currency = state.temporaryBooking.currency || "USD";
-    const addOnsPrices: { [key: string]: number } = {};
-    let addOnsTotal = 0;
-
-    addOnIds.forEach((id) => {
-      const addon = addOns.find((a) => a.id === id);
-      if (addon) {
-        const convertedPrice = state.convertPrice(
-          addon.basePrice,
-          "USD",
-          currency
-        );
-        addOnsPrices[id] = convertedPrice;
-        addOnsTotal += convertedPrice;
-      }
-    });
-
-    addOnsTotal = Number(addOnsTotal.toFixed(3));
-
+    })),
+  updateAddOns: (addOnIds) =>
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
         selectedAddOns: addOnIds,
-        addOnsTotal,
       },
-    }));
-  },
-  updateInsurance: (insuranceId) => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-    if (!currentUser.id) return;
-
-    const bookingData = JSON.parse(
-      localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-    );
-
-    const updatedBookingData = {
-      ...bookingData,
-      selectedInsurance: insuranceId,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    localStorage.setItem(
-      `user_data_${currentUser.id}_booking`,
-      JSON.stringify(updatedBookingData)
-    );
-
-    const state = get();
-    const currency = state.temporaryBooking.currency || "USD";
-    const insurance = insuranceOptions.find((i) => i.id === insuranceId);
-
-    const insurancePrice = insurance
-      ? Number(
-          state.convertPrice(insurance.basePrice, "USD", currency).toFixed(3)
-        )
-      : 0;
-
+    })),
+  updateInsurance: (insuranceId: string | null) =>
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
         selectedInsurance: insuranceId,
-        insurancePrice,
       },
-    }));
-  },
+    })),
   setBasePrice: (price, currency) =>
     set((state) => ({
       temporaryBooking: {
@@ -306,32 +207,4 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
   selectedFlight: null,
   setSelectedFlight: (flight) => set({ selectedFlight: flight }),
-  convertPrice: (price: number, fromCurrency: string, toCurrency: string) => {
-    const fromRate =
-      CURRENCY_RATES[fromCurrency as keyof typeof CURRENCY_RATES] || 1;
-    const toRate =
-      CURRENCY_RATES[toCurrency as keyof typeof CURRENCY_RATES] || 1;
-    return Number(((price * toRate) / fromRate).toFixed(3));
-  },
-  updatePriceBreakdown: (priceBreakdown) => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-    if (!currentUser.id) return;
-
-    const bookingData = JSON.parse(
-      localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-    );
-
-    const updatedBookingData = {
-      ...bookingData,
-      priceBreakdown,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    localStorage.setItem(
-      `user_data_${currentUser.id}_booking`,
-      JSON.stringify(updatedBookingData)
-    );
-  },
 }));
