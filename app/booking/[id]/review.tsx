@@ -20,8 +20,10 @@ import {
   Ticket,
   ReceiptText,
   Clock3,
+  Calendar,
+  Building2,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCustomDate } from "@/lib/utils";
 import { addOns, CURRENCY_RATES, insuranceOptions } from "@/lib/constants";
 import { useState, useEffect } from "react";
 import { TravelPayoutsLocation } from "@/types";
@@ -110,6 +112,45 @@ export default function Review() {
 
     fetchLocationDetails();
   }, [selectedFlight?.segments]);
+
+  // Add useEffect to store price breakdown when Review component mounts
+  useEffect(() => {
+    // Calculate add-ons prices
+    const addOnsPrices = temporaryBooking.selectedAddOns.reduce(
+      (acc, addonId) => {
+        const addon = addOns.find((a) => a.id === addonId);
+        if (addon) {
+          acc[addonId] = Number((addon.basePrice * rate).toFixed(3));
+        }
+        return acc;
+      },
+      {} as { [key: string]: number }
+    );
+
+    // Calculate insurance price - Fix the parentheses issue
+    const insurancePrice = temporaryBooking.selectedInsurance
+      ? Number(
+          (
+            insuranceOptions.find(
+              (i) => i.id === temporaryBooking.selectedInsurance
+            )?.basePrice * rate
+          ).toFixed(3) // Move the multiplication by rate inside the parentheses
+        )
+      : 0;
+
+    // Create price breakdown object
+    const priceBreakdown = {
+      baseTicketPrice: Number(temporaryBooking.basePrice.toFixed(3)),
+      addOnsTotal: Number(temporaryBooking.addOnsTotal.toFixed(3)),
+      insurancePrice: insurancePrice,
+      totalPrice: Number(temporaryBooking.totalPrice.toFixed(3)),
+      currency: currency,
+      addOnsPrices: addOnsPrices,
+    };
+
+    // Store in localStorage
+    localStorage.setItem("priceBreakdown", JSON.stringify(priceBreakdown));
+  }, [temporaryBooking, selectedFlight, currency, rate]);
 
   // Add back the getPassengerIcon function
   const getPassengerIcon = (type: string) => {
@@ -204,7 +245,10 @@ export default function Review() {
               </div>
               <div>
                 <span className="font-medium text-white">
-                  {String(segment.airline)} {String(segment.flightNumber)}
+                  {typeof segment.airline === "object"
+                    ? segment.airline.name
+                    : segment.airline}{" "}
+                  {segment.flightNumber}
                 </span>
                 <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium">
                   {String(selectedFlight.cabinClass || "ECONOMY")}
@@ -248,24 +292,40 @@ export default function Review() {
             </div>
           </div>
 
-          {/* Airport Details */}
+          {/* Airport Details - Updated with icons */}
           <div className="flex justify-between text-muted-foreground">
             <div>
               <div className="text-sm">{getAirportName(originDetails)}</div>
-              <div className="text-xs mt-2">
+              <div className="text-xs mt-2 flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
                 Terminal: {String(segment.terminal?.departure || "-")}
               </div>
-              <div className="text-xs">{String(segment.departureTime)}</div>
+              <div className="text-xs flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {formatCustomDate(segment.departureDatetime)}
+              </div>
+              <div className="text-xs flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {String(segment.departureTime)}
+              </div>
             </div>
 
             <div className="text-right">
               <div className="text-sm">
                 {getAirportName(destinationDetails)}
               </div>
-              <div className="text-xs mt-2">
+              <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                <Building2 className="h-3 w-3" />
                 Terminal: {String(segment.terminal?.arrival || "-")}
               </div>
-              <div className="text-xs">{String(segment.arrivalTime)}</div>
+              <div className="text-xs flex items-center gap-1 justify-end">
+                <Calendar className="h-3 w-3" />
+                {formatCustomDate(segment.arrivalDatetime)}
+              </div>
+              <div className="text-xs flex items-center gap-1 justify-end">
+                <Clock className="h-3 w-3" />
+                {String(segment.arrivalTime)}
+              </div>
             </div>
           </div>
 
