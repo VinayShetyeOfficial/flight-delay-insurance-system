@@ -27,9 +27,13 @@ export interface FlightSegment {
   baggage?: {
     includedCheckedBags: number;
     includedCabinBags: number;
+    checkedBagWeight?: number | null;
+    checkedBagWeightUnit?: string | null;
   };
   locationDetails?: { [key: string]: TravelPayoutsLocation };
   status?: string;
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 interface Passenger {
@@ -100,19 +104,32 @@ interface FlightStore {
 export const useFlightStore = create<FlightStore>((set) => ({
   selectedFlight: null,
   setSelectedFlight: (flight) => {
-    if (flight && flight.segments && flight.segments.length > 1) {
+    const formattedFlight = {
+      ...flight,
+      segments: flight.segments.map((segment: FlightSegment) => ({
+        ...segment,
+        departureDatetime: new Date(segment.departureDatetime).toISOString(),
+        arrivalDatetime: new Date(segment.arrivalDatetime).toISOString(),
+        baggage: segment.baggage || flight.baggage,
+      })),
+    };
+    if (
+      formattedFlight &&
+      formattedFlight.segments &&
+      formattedFlight.segments.length > 1
+    ) {
       // Calculate layover times when setting the flight
       const layoverTimes = [];
-      for (let i = 0; i < flight.segments.length - 1; i++) {
+      for (let i = 0; i < formattedFlight.segments.length - 1; i++) {
         const layoverTime = calculateLayoverTime(
-          flight.segments[i],
-          flight.segments[i + 1]
+          formattedFlight.segments[i],
+          formattedFlight.segments[i + 1]
         );
         layoverTimes.push(layoverTime);
       }
-      set({ selectedFlight: { ...flight, layoverTimes } });
+      set({ selectedFlight: { ...formattedFlight, layoverTimes } });
     } else {
-      set({ selectedFlight: flight });
+      set({ selectedFlight: formattedFlight });
     }
   },
   clearSelectedFlight: () => set({ selectedFlight: null }),
