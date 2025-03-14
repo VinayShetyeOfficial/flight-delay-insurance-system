@@ -38,6 +38,15 @@ interface TemporaryBookingState {
   addOnsTotal: number;
 }
 
+interface PriceBreakdown {
+  baseTicketPrice: number;
+  addOnsTotal: number;
+  insurancePrice: number;
+  totalPrice: number;
+  currency: string;
+  addOnsPrices: { [key: string]: number }; // Individual add-on prices
+}
+
 interface BookingState {
   bookings: BookingFormData[];
   setBookings: (bookings: BookingFormData[]) => void;
@@ -99,6 +108,11 @@ interface BookingState {
       duration: number;
     } | null
   ) => void;
+  convertPrice: (
+    price: number,
+    fromCurrency: string,
+    toCurrency: string
+  ) => number;
 }
 
 const initialTemporaryState: TemporaryBookingState = {
@@ -109,6 +123,15 @@ const initialTemporaryState: TemporaryBookingState = {
   currency: "USD",
   totalPrice: 0,
   addOnsTotal: 0,
+};
+
+const initialPriceBreakdown: PriceBreakdown = {
+  baseTicketPrice: 0,
+  addOnsTotal: 0,
+  insurancePrice: 0,
+  totalPrice: 0,
+  currency: "USD",
+  addOnsPrices: {},
 };
 
 export const useBookingStore = create<BookingState>((set, get) => ({
@@ -130,20 +153,54 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         passengers,
       },
     })),
-  updateAddOns: (addOnIds) =>
+  updateAddOns: (addOnIds) => {
+    const state = get();
+    const currency = state.temporaryBooking.currency || "USD";
+    const addOnsPrices: { [key: string]: number } = {};
+    let addOnsTotal = 0;
+
+    addOnIds.forEach((id) => {
+      const addon = addOns.find((a) => a.id === id);
+      if (addon) {
+        const convertedPrice = state.convertPrice(
+          addon.basePrice,
+          "USD",
+          currency
+        );
+        addOnsPrices[id] = convertedPrice;
+        addOnsTotal += convertedPrice;
+      }
+    });
+
+    addOnsTotal = Number(addOnsTotal.toFixed(3));
+
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
         selectedAddOns: addOnIds,
+        addOnsTotal,
       },
-    })),
-  updateInsurance: (insuranceId: string | null) =>
+    }));
+  },
+  updateInsurance: (insuranceId: string | null) => {
+    const state = get();
+    const currency = state.temporaryBooking.currency || "USD";
+    const insurance = insuranceOptions.find((i) => i.id === insuranceId);
+
+    const insurancePrice = insurance
+      ? Number(
+          state.convertPrice(insurance.basePrice, "USD", currency).toFixed(3)
+        )
+      : 0;
+
     set((state) => ({
       temporaryBooking: {
         ...state.temporaryBooking,
         selectedInsurance: insuranceId,
+        insurancePrice,
       },
-    })),
+    }));
+  },
   setBasePrice: (price, currency) =>
     set((state) => ({
       temporaryBooking: {
@@ -207,4 +264,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
   selectedFlight: null,
   setSelectedFlight: (flight) => set({ selectedFlight: flight }),
+  convertPrice: (price: number, fromCurrency: string, toCurrency: string) => {
+    const fromRate =
+      CURRENCY_RATES[fromCurrency as keyof typeof CURRENCY_RATES] || 1;
+    const toRate =
+      CURRENCY_RATES[toCurrency as keyof typeof CURRENCY_RATES] || 1;
+    return Number(((price * toRate) / fromRate).toFixed(3));
+  },
 }));
