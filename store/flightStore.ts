@@ -27,13 +27,9 @@ export interface FlightSegment {
   baggage?: {
     includedCheckedBags: number;
     includedCabinBags: number;
-    checkedBagWeight?: number | null;
-    checkedBagWeightUnit?: string | null;
   };
   locationDetails?: { [key: string]: TravelPayoutsLocation };
   status?: string;
-  departureDatetime: string;
-  arrivalDatetime: string;
 }
 
 interface Passenger {
@@ -85,7 +81,6 @@ function calculateLayoverTime(
 
 interface FlightStore {
   selectedFlight: {
-    userId?: string;
     segments: FlightSegment[];
     isLayover: boolean;
     layoverTimes: number[];
@@ -105,37 +100,19 @@ interface FlightStore {
 export const useFlightStore = create<FlightStore>((set) => ({
   selectedFlight: null,
   setSelectedFlight: (flight) => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-
-    const formattedFlight = {
-      ...flight,
-      userId: currentUser.id,
-      segments: flight.segments.map((segment: FlightSegment) => ({
-        ...segment,
-        departureDatetime: new Date(segment.departureDatetime).toISOString(),
-        arrivalDatetime: new Date(segment.arrivalDatetime).toISOString(),
-        baggage: segment.baggage || flight.baggage,
-      })),
-    };
-    if (
-      formattedFlight &&
-      formattedFlight.segments &&
-      formattedFlight.segments.length > 1
-    ) {
+    if (flight && flight.segments && flight.segments.length > 1) {
       // Calculate layover times when setting the flight
       const layoverTimes = [];
-      for (let i = 0; i < formattedFlight.segments.length - 1; i++) {
+      for (let i = 0; i < flight.segments.length - 1; i++) {
         const layoverTime = calculateLayoverTime(
-          formattedFlight.segments[i],
-          formattedFlight.segments[i + 1]
+          flight.segments[i],
+          flight.segments[i + 1]
         );
         layoverTimes.push(layoverTime);
       }
-      set({ selectedFlight: { ...formattedFlight, layoverTimes } });
+      set({ selectedFlight: { ...flight, layoverTimes } });
     } else {
-      set({ selectedFlight: formattedFlight });
+      set({ selectedFlight: flight });
     }
   },
   clearSelectedFlight: () => set({ selectedFlight: null }),
