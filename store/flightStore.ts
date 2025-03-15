@@ -85,6 +85,7 @@ function calculateLayoverTime(
 
 interface FlightStore {
   selectedFlight: {
+    userId?: string;
     segments: FlightSegment[];
     isLayover: boolean;
     layoverTimes: number[];
@@ -104,8 +105,13 @@ interface FlightStore {
 export const useFlightStore = create<FlightStore>((set) => ({
   selectedFlight: null,
   setSelectedFlight: (flight) => {
+    const currentUser = JSON.parse(
+      localStorage.getItem("current_user") || "{}"
+    );
+
     const formattedFlight = {
       ...flight,
+      userId: currentUser.id,
       segments: flight.segments.map((segment: FlightSegment) => ({
         ...segment,
         departureDatetime: new Date(segment.departureDatetime).toISOString(),
