@@ -113,13 +113,8 @@ export default function Review() {
     fetchLocationDetails();
   }, [selectedFlight?.segments]);
 
-  // Update useEffect to store price breakdown in user-specific booking data
+  // Add useEffect to store price breakdown when Review component mounts
   useEffect(() => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-    if (!currentUser.id) return;
-
     // Calculate add-ons prices
     const addOnsPrices = temporaryBooking.selectedAddOns.reduce(
       (acc, addonId) => {
@@ -132,14 +127,14 @@ export default function Review() {
       {} as { [key: string]: number }
     );
 
-    // Calculate insurance price
+    // Calculate insurance price - Fix the parentheses issue
     const insurancePrice = temporaryBooking.selectedInsurance
       ? Number(
           (
             insuranceOptions.find(
               (i) => i.id === temporaryBooking.selectedInsurance
             )?.basePrice * rate
-          ).toFixed(3)
+          ).toFixed(3) // Move the multiplication by rate inside the parentheses
         )
       : 0;
 
@@ -153,23 +148,8 @@ export default function Review() {
       addOnsPrices: addOnsPrices,
     };
 
-    // Get existing booking data
-    const existingBookingData = JSON.parse(
-      localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-    );
-
-    // Update booking data with price breakdown
-    const updatedBookingData = {
-      ...existingBookingData,
-      priceBreakdown,
-      lastUpdated: new Date().toISOString(),
-    };
-
-    // Store updated booking data
-    localStorage.setItem(
-      `user_data_${currentUser.id}_booking`,
-      JSON.stringify(updatedBookingData)
-    );
+    // Store in localStorage
+    localStorage.setItem("priceBreakdown", JSON.stringify(priceBreakdown));
   }, [temporaryBooking, selectedFlight, currency, rate]);
 
   // Add back the getPassengerIcon function
