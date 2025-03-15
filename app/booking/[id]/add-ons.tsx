@@ -66,6 +66,9 @@ export default function AddOns() {
     setSelectedAddOns(newSelectedAddOns);
     updateAddOns(newSelectedAddOns);
     calculateTotalPrice();
+
+    // Update localStorage with add-ons selection
+    localStorage.setItem("addonsData", JSON.stringify(newSelectedAddOns));
   };
 
   const handleInsuranceSelection = (insuranceId: string) => {
@@ -73,6 +76,12 @@ export default function AddOns() {
       .getState()
       .updateInsurance(selectedInsurance === insuranceId ? null : insuranceId);
     calculateTotalPrice();
+
+    // Store insurance selection in localStorage
+    localStorage.setItem(
+      "selectedInsurance",
+      selectedInsurance === insuranceId ? "" : insuranceId
+    );
   };
 
   return (
