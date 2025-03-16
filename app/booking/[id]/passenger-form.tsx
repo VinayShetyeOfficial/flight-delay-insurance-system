@@ -103,9 +103,6 @@ export default function PassengerForm({
               : "INFANT",
         }));
         updatePassengers(typedPassengers);
-
-        // Save passenger data to localStorage
-        localStorage.setItem("passengerData", JSON.stringify(typedPassengers));
       }
     });
 
