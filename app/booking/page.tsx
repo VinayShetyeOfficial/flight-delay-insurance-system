@@ -262,14 +262,6 @@ export default function BookingPage() {
     }
   }, [status, router]);
 
-  // Add useEffect to clean up priceBreakdown when booking page mounts
-  useEffect(() => {
-    // Check if priceBreakdown exists in localStorage before removing
-    if (localStorage.getItem("priceBreakdown")) {
-      localStorage.removeItem("priceBreakdown");
-    }
-  }, []);
-
   // Handle trip type change.
   const handleTripTypeChange = (type: "oneWay" | "roundTrip") => {
     setValue("tripType", type);
