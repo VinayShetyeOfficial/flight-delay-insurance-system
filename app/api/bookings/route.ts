@@ -18,7 +18,14 @@ export async function GET(req: Request) {
         userId: session.user.id,
       },
       include: {
+        flights: true,
+        passengers: true,
+        payment: true,
         insurance: true,
+        user: true,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
