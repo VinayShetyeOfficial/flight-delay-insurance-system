@@ -214,23 +214,24 @@ export default function Review() {
     },
   ];
 
+  const getLocationName = (details: any, code: string) => {
+    if (!details) return code;
+    return details.city_name || details.name || code;
+  };
+
+  const getAirportName = (details: any) => {
+    if (!details) return "";
+    return (
+      details.airport_name || details.main_airport_name || details.name || ""
+    );
+  };
+
   const renderFlightSegment = (segment: any, index: number) => {
     if (!segment) return null;
 
-    const originDetails = locationDetails[segment.origin];
-    const destinationDetails = locationDetails[segment.destination];
-
-    const getLocationName = (details: any, code: string) => {
-      if (!details) return code;
-      return details.type === "city" ? details.name : details.city_name || code;
-    };
-
-    const getAirportName = (details: any) => {
-      if (!details) return "";
-      return details.type === "city"
-        ? details.main_airport_name
-        : details.name || "";
-    };
+    const originDetails = selectedFlight.fullLocationDetails[segment.origin];
+    const destinationDetails =
+      selectedFlight.fullLocationDetails[segment.destination];
 
     return (
       <div
