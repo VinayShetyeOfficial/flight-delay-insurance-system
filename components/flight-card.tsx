@@ -400,23 +400,131 @@ export default function FlightCard(props: FlightCardProps) {
 
   useEffect(() => {
     const fetchLocationDetails = async () => {
+      /**
+       * Fetches location details from Travelpayouts for a given IATA code (e.g. "BOM", "LAS").
+       * Returns a standardized object with city_name, main_airport_name, etc.
+       */
       const fetchDetails = async (iataCode: string) => {
         try {
+          // Always uppercase the code to avoid mismatch
+          const codeUpper = iataCode.toUpperCase();
+
           const response = await fetch(
-            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${encodeURIComponent(
+              codeUpper
+            )}`
           );
           const data = await response.json();
+          if (!Array.isArray(data) || data.length === 0) {
+            return null;
+          }
 
-          // Try to find airport result first
-          const airportResult = data.find(
-            (item: any) => item.type === "airport"
+          // 1) Exact Airport Match (e.g., "JFK")
+          const exactAirportMatch = data.find(
+            (item: any) =>
+              item.type === "airport" && item.code?.toUpperCase() === codeUpper
           );
-          if (airportResult) return airportResult;
 
-          // If no airport found, try city result
-          const cityResult = data.find((item: any) => item.type === "city");
-          if (cityResult) return cityResult;
+          // 2) Exact City Match (e.g., "LAS" => city = "Las Vegas")
+          const exactCityMatch = data.find(
+            (item: any) =>
+              item.type === "city" && item.code?.toUpperCase() === codeUpper
+          );
 
+          // -----------------------------------------
+          // Case 1: EXACT AIRPORT MATCH
+          // e.g. "JFK" => "John F. Kennedy International Airport"
+          // -----------------------------------------
+          if (exactAirportMatch) {
+            return {
+              type: "airport",
+              code: exactAirportMatch.code,
+              name: exactAirportMatch.name, // e.g. "John F. Kennedy International Airport"
+              city_name: exactAirportMatch.city_name, // e.g. "New York"
+              main_airport_name: exactAirportMatch.name,
+              country_code: exactAirportMatch.country_code,
+              country_name: exactAirportMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 2: EXACT CITY MATCH WITH main_airport_name
+          // e.g. "AUH" => city with "Abu Dhabi International Airport"
+          // e.g. "KWI" => city with "Kuwait International Airport"
+          // e.g. "LAS" => city with "McCarran International Airport"
+          // -----------------------------------------
+          if (exactCityMatch && exactCityMatch.main_airport_name) {
+            return {
+              type: "city",
+              code: exactCityMatch.code,
+              name: exactCityMatch.name, // e.g. "Las Vegas"
+              city_name: exactCityMatch.name,
+              main_airport_name: exactCityMatch.main_airport_name, // e.g. "McCarran International Airport"
+              country_code: exactCityMatch.country_code,
+              country_name: exactCityMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 3: EXACT CITY MATCH BUT NO main_airport_name
+          // e.g. "BOM" => city object with main_airport_name = null
+          // => We look for an airport in the same array with city_code === "BOM"
+          // e.g. "Chhatrapati Shivaji International Airport"
+          // -----------------------------------------
+          if (exactCityMatch) {
+            const cityAirport = data.find(
+              (item: any) =>
+                item.type === "airport" &&
+                item.city_code?.toUpperCase() ===
+                  exactCityMatch.code?.toUpperCase()
+            );
+
+            return {
+              type: "city",
+              code: exactCityMatch.code,
+              name: exactCityMatch.name,
+              city_name: exactCityMatch.name,
+              main_airport_name: cityAirport
+                ? cityAirport.name
+                : `${exactCityMatch.name} International Airport`,
+              country_code: exactCityMatch.country_code,
+              country_name: exactCityMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 4: NO EXACT MATCH => FALL BACK TO THE FIRST RESULT
+          // e.g. user typed "DEL" but the array only has partial matches
+          // -----------------------------------------
+          const firstResult = data[0];
+          if (firstResult) {
+            if (firstResult.type === "airport") {
+              return {
+                type: "airport",
+                code: firstResult.code,
+                name: firstResult.name,
+                city_name: firstResult.city_name,
+                main_airport_name: firstResult.name,
+                country_code: firstResult.country_code,
+                country_name: firstResult.country_name,
+              };
+            } else {
+              // It's a city
+              return {
+                type: "city",
+                code: firstResult.code,
+                name: firstResult.name,
+                city_name: firstResult.name,
+                main_airport_name:
+                  firstResult.main_airport_name ||
+                  `${firstResult.name} International Airport`,
+                country_code: firstResult.country_code,
+                country_name: firstResult.country_name,
+              };
+            }
+          }
+
+          // If no results at all
           return null;
         } catch (error) {
           console.error(`Error fetching details for ${iataCode}:`, error);
@@ -426,25 +534,35 @@ export default function FlightCard(props: FlightCardProps) {
 
       const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
 
-      // Handle both layover and direct flights
       if (props.isLayover && props.segments) {
-        // Existing layover logic
         for (const segment of props.segments) {
           if (!newLocationDetails[segment.origin]) {
-            const details = await fetchDetails(segment.origin);
+            const details = await fetchDetails(
+              segment.origin,
+              segment.originCity
+            );
             if (details) newLocationDetails[segment.origin] = details;
           }
           if (!newLocationDetails[segment.destination]) {
-            const details = await fetchDetails(segment.destination);
+            const details = await fetchDetails(
+              segment.destination,
+              segment.destinationCity
+            );
             if (details) newLocationDetails[segment.destination] = details;
           }
         }
       } else {
         // Direct flight logic
-        const originDetails = await fetchDetails(props.origin);
+        const originDetails = await fetchDetails(
+          props.origin,
+          props.originCity
+        );
         if (originDetails) newLocationDetails[props.origin] = originDetails;
 
-        const destDetails = await fetchDetails(props.destination);
+        const destDetails = await fetchDetails(
+          props.destination,
+          props.destinationCity
+        );
         if (destDetails) newLocationDetails[props.destination] = destDetails;
       }
 
@@ -1239,6 +1357,7 @@ export default function FlightCard(props: FlightCardProps) {
                               ? locationDetails[props.origin]?.name
                               : locationDetails[props.origin]?.city_name ||
                                 props.originCity}
+                            )
                           </div>
 
                           {/* Flight Path Visualization */}
@@ -1260,6 +1379,7 @@ export default function FlightCard(props: FlightCardProps) {
                               ? locationDetails[props.destination]?.name
                               : locationDetails[props.destination]?.city_name ||
                                 props.destinationCity}
+                            )
                           </div>
                         </div>
 
