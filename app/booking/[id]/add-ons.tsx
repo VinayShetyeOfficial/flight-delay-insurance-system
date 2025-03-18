@@ -66,6 +66,9 @@ export default function AddOns() {
     setSelectedAddOns(newSelectedAddOns);
     updateAddOns(newSelectedAddOns);
     calculateTotalPrice();
+
+    // Update localStorage with add-ons selection
+    localStorage.setItem("addonsData", JSON.stringify(newSelectedAddOns));
   };
 
   const handleInsuranceSelection = (insuranceId: string) => {
@@ -73,6 +76,12 @@ export default function AddOns() {
       .getState()
       .updateInsurance(selectedInsurance === insuranceId ? null : insuranceId);
     calculateTotalPrice();
+
+    // Store insurance selection in localStorage
+    localStorage.setItem(
+      "selectedInsurance",
+      selectedInsurance === insuranceId ? "" : insuranceId
+    );
   };
 
   return (
@@ -136,45 +145,79 @@ export default function AddOns() {
           Choose the perfect plan for your travel needs
         </p>
         <div className="grid gap-4 md:grid-cols-3">
-          {insuranceOptions.map((option) => {
+          {insuranceOptions.map((option, index) => {
             const convertedPrice = convertPrice(option.basePrice, currency);
-            const isSelected = selectedInsurance === option.id;
+            const showFeatures = showFeaturesForCard === option.id;
 
             return (
               <motion.div
                 key={option.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex"
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+                className="relative"
               >
+                <AnimatePresence>
+                  {showFeatures && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute z-10 bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border p-4"
+                    >
+                      <h4 className="font-medium mb-2">Features included:</h4>
+                      <ul className="space-y-2">
+                        {option.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Check className="h-4 w-4 text-primary" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <Card
                   className={cn(
-                    "flex flex-col flex-1",
-                    isSelected ? "border-primary" : ""
+                    "cursor-pointer transition-all",
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
                   )}
                   onClick={() => handleInsuranceSelection(option.id)}
                 >
-                  <CardContent className="p-6 flex flex-col flex-1">
-                    <div className="flex flex-col flex-1">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          {option.icon === "basic" && (
-                            <Shield className="h-5 w-5 text-primary" />
-                          )}
-                          {option.icon === "standard" && (
-                            <ShieldCheck className="h-5 w-5 text-primary" />
-                          )}
-                          {option.icon === "premium" && (
-                            <ShieldPlus className="h-5 w-5 text-primary" />
-                          )}
-                          <h3 className="font-semibold">{option.name}</h3>
-                        </div>
-                        <CardDescription>{option.description}</CardDescription>
-                      </div>
+                  <CardContent className="pt-6">
+                    <div className="absolute top-3 right-3">
+                      <Info
+                        className={cn(
+                          "h-5 w-5 cursor-pointer transition-colors",
+                          showFeatures
+                            ? "text-primary"
+                            : "text-muted-foreground",
+                          "hover:text-primary"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowFeaturesForCard(
+                            showFeatures ? null : option.id
+                          );
+                        }}
+                      />
                     </div>
-                    <div className="mt-4">
-                      <p className="font-semibold text-lg">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <option.icon className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium">{option.name}</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {option.description}
+                      </p>
+                      <p className="text-lg font-bold">
                         {formatCurrency(convertedPrice, currency)}
                       </p>
                     </div>
