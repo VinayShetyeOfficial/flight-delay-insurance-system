@@ -33,15 +33,6 @@ import {
   MountainSnow,
   Gauge,
   Compass,
-  ShieldCheck,
-  Ticket,
-  Users,
-  XCircle,
-  MapPin,
-  User,
-  Baby,
-  Printer,
-  UserRound,
 } from "lucide-react";
 import { useBookingStore } from "@/store/bookingStore";
 import { Badge } from "@/components/ui/badge";
@@ -320,7 +311,7 @@ export default function DashboardPage() {
     if (status === "unauthenticated") {
       router.push("/login");
     } else if (status === "authenticated") {
-      fetchUserBookings();
+      fetchBookings();
     }
   }, [status, router]);
 
@@ -332,26 +323,15 @@ export default function DashboardPage() {
     router.push("/booking");
   }, [router]);
 
-  const fetchUserBookings = async () => {
+  const fetchBookings = async () => {
     try {
-      // Get user ID from localStorage
-      const currentUser = localStorage.getItem("current_user");
-      if (!currentUser) {
-        console.error("No user found in localStorage");
-        return;
+      const response = await fetch("/api/bookings");
+      if (!response.ok) {
+        throw new Error("Failed to fetch bookings");
       }
-
-      const { id: userId } = JSON.parse(currentUser);
-
-      // Fetch bookings for this user
-      const response = await fetch(`/api/bookings?userId=${userId}`);
-      if (!response.ok) throw new Error("Failed to fetch bookings");
-
       const data = await response.json();
-      console.log("Fetched bookings:", data); // Debug log
       setBookings(data);
     } catch (error) {
-      console.error("Error fetching bookings:", error);
       toast({
         title: "Error",
         description: "Failed to fetch bookings. Please try again.",
@@ -484,277 +464,52 @@ export default function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {bookings.map((booking) => (
-                  <Card
-                    key={booking.id}
-                    className="w-full overflow-hidden transition-all hover:shadow-xl border border-zinc-200/80 dark:border-zinc-800/80 group"
-                  >
-                    <CardContent className="p-0">
-                      {/* Header Section */}
-                      <div className="px-6 py-5 bg-gradient-to-r from-indigo-500 via-purple-500 to-purple-600 relative overflow-hidden">
-                        {/* Decorative Pattern */}
-                        <div className="absolute inset-0 opacity-10">
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              backgroundImage:
-                                "url(\"data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.22676 0C1.91374 0 2.45351 0.539773 2.45351 1.22676C2.45351 1.91374 1.91374 2.45351 1.22676 2.45351C0.539773 2.45351 0 1.91374 0 1.22676C0 0.539773 0.539773 0 1.22676 0Z' fill='rgba(255,255,255,0.07)'/%3E%3C/svg%3E\")",
-                            }}
-                          />
-                        </div>
-
-                        {/* Status Badge */}
-                        <div
-                          className={cn(
-                            "absolute top-5 right-6 px-3 py-1.5 rounded-full text-sm font-medium shadow-lg backdrop-blur-sm flex items-center gap-1.5",
-                            booking.status === "CONFIRMED" &&
-                              "bg-green-500/20 text-green-50 border border-green-400/20",
-                            booking.status === "PENDING" &&
-                              "bg-yellow-500/20 text-yellow-50 border border-yellow-400/20",
-                            booking.status === "CANCELLED" &&
-                              "bg-red-500/20 text-red-50 border border-red-400/20"
-                          )}
-                        >
-                          {booking.status === "CONFIRMED" && (
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          )}
-                          {booking.status === "PENDING" && (
-                            <Clock className="h-3.5 w-3.5" />
-                          )}
-                          {booking.status === "CANCELLED" && (
-                            <XCircle className="h-3.5 w-3.5" />
-                          )}
-                          {booking.status}
-                        </div>
-
-                        {/* Main Flight Info */}
-                        <div className="flex items-start gap-4 text-white">
-                          <div className="h-14 w-14 rounded-2xl bg-white/95 p-3 flex items-center justify-center shadow-lg transform -rotate-12 group-hover:rotate-0 transition-transform duration-300">
-                            <Plane className="h-full w-full text-primary rotate-45" />
-                          </div>
-
-                          <div className="flex-1 space-y-2.5">
-                            {/* Flight Code & Route */}
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
-                                <span>{booking?.flights?.[0]?.origin}</span>
-                                <Plane className="h-5 w-5 rotate-45" />
-                                <span>
-                                  {
-                                    booking?.flights?.[
-                                      booking.flights?.length - 1
-                                    ]?.destination
-                                  }
-                                </span>
-                              </h3>
-                              <Badge
-                                variant="outline"
-                                className="bg-white/10 text-white border-white/20 px-2.5 py-1"
-                              >
-                                {booking?.flights?.[0]?.flightNumber}
-                              </Badge>
-                            </div>
-
-                            {/* City Names */}
-                            <p className="text-sm text-white/90 flex items-center gap-2">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {
-                                booking?.flights?.[0]?.originDetails?.city_name
-                              }{" "}
-                              to{" "}
-                              {
-                                booking?.flights?.[booking.flights?.length - 1]
-                                  ?.destinationDetails?.city_name
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Details Grid */}
-                      <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-6 bg-white dark:bg-zinc-900/95">
-                        {/* Departure Details */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>Departure</span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-lg font-semibold">
-                              {booking?.flights?.[0]?.departureTime
-                                ? format(
-                                    new Date(booking.flights[0].departureTime),
-                                    "HH:mm"
-                                  )
-                                : "N/A"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {booking?.flights?.[0]?.departureTime
-                                ? format(
-                                    new Date(booking.flights[0].departureTime),
-                                    "MMM d, yyyy"
-                                  )
-                                : ""}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                              <Building2 className="h-4 w-4" />
-                              <span>
-                                Terminal{" "}
-                                {booking?.flights?.[0]?.originTerminal || "-"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Arrival Details */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>Arrival</span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-lg font-semibold">
-                              {booking?.flights?.[booking.flights?.length - 1]
-                                ?.arrivalTime
-                                ? format(
-                                    new Date(
-                                      booking.flights[
-                                        booking.flights.length - 1
-                                      ].arrivalTime
-                                    ),
-                                    "HH:mm"
-                                  )
-                                : "N/A"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {booking?.flights?.[booking.flights?.length - 1]
-                                ?.arrivalTime
-                                ? format(
-                                    new Date(
-                                      booking.flights[
-                                        booking.flights.length - 1
-                                      ].arrivalTime
-                                    ),
-                                    "MMM d, yyyy"
-                                  )
-                                : ""}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                              <Building2 className="h-4 w-4" />
-                              <span>
-                                Terminal{" "}
-                                {booking?.flights?.[booking.flights?.length - 1]
-                                  ?.destTerminal || "-"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Insurance Details */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <ShieldCheck className="h-4 w-4" />
-                            <span>Insurance</span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-lg font-semibold capitalize">
-                              {booking?.insurance?.coverageType
-                                ?.split("-")
-                                .join(" ") || "No Insurance"}
-                            </p>
-                            {booking?.insurance?.price && (
-                              <p className="text-sm text-muted-foreground">
-                                Coverage: {booking.insurance.price}{" "}
-                                {booking.currency}
-                              </p>
+                  <Card key={booking.id}>
+                    <CardHeader>
+                      <CardTitle className="flex justify-between items-center">
+                        <span>
+                          {booking.origin} to {booking.destination}
+                        </span>
+                        {booking.status && (
+                          <span
+                            className={`text-sm px-2 py-1 rounded ${
+                              booking.status === "On Time"
+                                ? "bg-green-100 text-green-800"
+                                : booking.status === "Delayed"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {booking.status === "On Time" && (
+                              <CheckCircle className="inline-block mr-1 h-4 w-4" />
                             )}
-                          </div>
-                        </div>
-
-                        {/* Passenger Details */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>Passengers</span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-lg font-semibold">
-                              {booking?.passengers?.length || 0}{" "}
-                              {booking?.passengers?.length === 1
-                                ? "Person"
-                                : "People"}
-                            </p>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              {booking?.passengers?.some(
-                                (p) => p.passengerType === "ADULT"
-                              ) && (
-                                <div className="flex items-center gap-1">
-                                  <UserRound className="h-4 w-4" />
-                                  <span>
-                                    {
-                                      booking.passengers.filter(
-                                        (p) => p.passengerType === "ADULT"
-                                      ).length
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                              {booking?.passengers?.some(
-                                (p) => p.passengerType === "CHILD"
-                              ) && (
-                                <div className="flex items-center gap-1">
-                                  <User className="h-4 w-4" />
-                                  <span>
-                                    {
-                                      booking.passengers.filter(
-                                        (p) => p.passengerType === "CHILD"
-                                      ).length
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                              {booking?.passengers?.some(
-                                (p) => p.passengerType === "INFANT"
-                              ) && (
-                                <div className="flex items-center gap-1">
-                                  <Baby className="h-4 w-4" />
-                                  <span>
-                                    {
-                                      booking.passengers.filter(
-                                        (p) => p.passengerType === "INFANT"
-                                      ).length
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="col-span-2 md:col-span-4 flex justify-end items-center gap-3 pt-4 border-t mt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex items-center gap-2"
-                            onClick={() => window.print()}
-                          >
-                            <Printer className="h-4 w-4" />
-                            Print
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              router.push(`/dashboard/${booking.id}`)
-                            }
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <Ticket className="h-4 w-4" />
-                            View Ticket
-                          </Button>
-                        </div>
-                      </div>
+                            {booking.status === "Delayed" && (
+                              <Clock className="inline-block mr-1 h-4 w-4" />
+                            )}
+                            {booking.status === "Cancelled" && (
+                              <AlertCircle className="inline-block mr-1 h-4 w-4" />
+                            )}
+                            {booking.status}
+                          </span>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p>Flight: {booking.flightNumber}</p>
+                      <p>Departure: {booking.departureTime}</p>
+                      <p>Arrival: {booking.arrivalTime}</p>
+                      <p>Insurance: {booking.insuranceType || "None"}</p>
+                      <Button
+                        className="mt-4"
+                        onClick={() => {
+                          setFlightNumberToCheck(booking.flightNumber);
+                          handleCheckStatus(new Event("submit") as any);
+                        }}
+                      >
+                        Check Status
+                      </Button>
                     </CardContent>
                   </Card>
                 ))}
