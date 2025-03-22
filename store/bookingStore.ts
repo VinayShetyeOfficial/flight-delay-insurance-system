@@ -36,6 +36,7 @@ interface TemporaryBookingState {
   currency: string;
   totalPrice: number;
   addOnsTotal: number;
+  isPaymentComplete: boolean;
 }
 
 interface PriceBreakdown {
@@ -114,6 +115,7 @@ interface BookingState {
     toCurrency: string
   ) => number;
   updatePriceBreakdown: (priceBreakdown: PriceBreakdown) => void;
+  setPaymentComplete: (isComplete: boolean) => void;
 }
 
 const initialTemporaryState: TemporaryBookingState = {
@@ -124,6 +126,7 @@ const initialTemporaryState: TemporaryBookingState = {
   currency: "USD",
   totalPrice: 0,
   addOnsTotal: 0,
+  isPaymentComplete: false,
 };
 
 const initialPriceBreakdown: PriceBreakdown = {
@@ -333,5 +336,33 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       `user_data_${currentUser.id}_booking`,
       JSON.stringify(updatedBookingData)
     );
+  },
+  setPaymentComplete: (isComplete) => {
+    const currentUser = JSON.parse(
+      localStorage.getItem("current_user") || "{}"
+    );
+    if (!currentUser.id) return;
+
+    const bookingData = JSON.parse(
+      localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
+    );
+
+    const updatedBookingData = {
+      ...bookingData,
+      isPaymentComplete: isComplete,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    localStorage.setItem(
+      `user_data_${currentUser.id}_booking`,
+      JSON.stringify(updatedBookingData)
+    );
+
+    set((state) => ({
+      temporaryBooking: {
+        ...state.temporaryBooking,
+        isPaymentComplete: isComplete,
+      },
+    }));
   },
 }));
