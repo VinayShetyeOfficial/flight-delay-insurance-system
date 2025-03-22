@@ -1,146 +1,184 @@
-import { prisma } from "@/lib/prisma";
-import { BookingStatus, PaymentStatus, PassengerType } from "@prisma/client";
+// bookingService.ts
+import {
+  PrismaClient,
+  BookingStatus,
+  PaymentStatus,
+  PassengerType,
+  Gender,
+} from "@prisma/client";
 
-export async function createCompleteBooking(userId: string, bookingData: any) {
-  try {
-    // Extract data from the booking payload
-    const { flight, passengers, addons, insurance, priceBreakdown } =
-      bookingData;
+const prisma = new PrismaClient();
 
-    // Detailed validation
-    if (!flight) throw new Error("Flight data is missing");
-    if (!flight.segments?.length)
-      throw new Error("Flight segments are missing");
-    if (!passengers?.length) throw new Error("Passenger data is missing");
-    if (!priceBreakdown) throw new Error("Price breakdown is missing");
-    if (!userId) throw new Error("User ID is missing");
+// Client-side data interfaces
 
-    console.log("Validation passed, creating booking with data:", {
+interface FlightSegmentData {
+  airline: string;
+  airlineCode?: string;
+  flightNumber: string;
+  origin: string;
+  originCity: string;
+  destination: string;
+  destinationCity: string;
+  departureDatetime: string; // ISO string
+  arrivalDatetime: string; // ISO string
+  departureTime: string;
+  arrivalTime: string;
+  duration: number;
+  terminal?: { departure: string; arrival: string };
+  aircraft?: string;
+  status?: string;
+  baggage: any;
+  amenities: any;
+  originDetails: any;
+  destinationDetails: any;
+}
+
+interface SelectedFlight {
+  id: string;
+  isLayover: boolean;
+  price: number;
+  totalPrice: number;
+  currency: string;
+  cabinClass: string;
+  totalDuration: number;
+  segments: FlightSegmentData[];
+  layoverTimes: number[]; // from localStorage
+  fullLocationDetails: Record<string, any>;
+}
+
+interface PassengerData {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string; // ISO date string
+  gender: string;
+  passportNumber?: string;
+  nationality?: string;
+  email?: string;
+  phone?: string;
+  specialRequests?: string;
+  type: string; // "ADULT", "CHILD", "INFANT"
+}
+
+interface PriceBreakdown {
+  baseTicketPrice: number;
+  addOnsTotal: number;
+  insurancePrice: number;
+  totalPrice: number;
+  currency: string;
+  addOnsPrices: Record<string, number>;
+}
+
+interface BookingData {
+  passengers: PassengerData[];
+  lastUpdated: string;
+  selectedInsurance: string;
+  priceBreakdown: PriceBreakdown;
+}
+
+interface CompleteBookingData {
+  flight: SelectedFlight;
+  passengers: PassengerData[];
+  selectedInsurance: string;
+  priceBreakdown: PriceBreakdown;
+}
+
+/**
+ * createCompleteBooking
+ *
+ * Creates a Booking record in the Prisma database using the data
+ * provided from localStorage.
+ */
+export async function createCompleteBooking(
+  userId: string,
+  completeBookingData: CompleteBookingData
+) {
+  const { flight, passengers, selectedInsurance, priceBreakdown } =
+    completeBookingData;
+
+  // Build Flight records using the provided segments.
+  const flightRecords = flight.segments.map((segment) => ({
+    airlineCode: segment.airlineCode || "",
+    flightNumber: segment.flightNumber,
+    cabinClass: flight.cabinClass,
+    departureTime: new Date(segment.departureDatetime),
+    arrivalTime: new Date(segment.arrivalDatetime),
+    origin: segment.origin,
+    destination: segment.destination,
+    originTerminal: segment.terminal?.departure || null,
+    destTerminal: segment.terminal?.arrival || null,
+    duration: segment.duration,
+    price: flight.price,
+    currency: flight.currency,
+    airline: segment.airline,
+    amenities: segment.amenities,
+    baggage: segment.baggage,
+    destinationDetails: segment.destinationDetails,
+    originDetails: segment.originDetails,
+    isLayover: flight.isLayover,
+    layoverDuration: null, // We are not recomputing individual layover durations.
+    status: segment.status || "SCHEDULED",
+    aircraft: segment.aircraft || undefined, // Store as a plain JSON value
+  }));
+
+  // Consolidate add‑on data into one JSON field.
+  const addOnsData = priceBreakdown.addOnsPrices;
+
+  // Create the Booking record with nested writes.
+  const booking = await prisma.booking.create({
+    data: {
       userId,
-      flightId: flight.id,
-      passengerCount: passengers.length,
-      addonsCount: addons?.length || 0,
-      hasInsurance: !!insurance,
-    });
-
-    // Create the main booking record using transaction
-    const booking = await prisma.$transaction(async (tx) => {
-      const newBooking = await tx.booking.create({
-        data: {
-          userId: userId,
-          price: Number(flight.price) || 0,
-          totalPrice: Number(priceBreakdown.totalPrice) || 0,
-          currency: flight.currency || "USD",
-          status: "CONFIRMED" as BookingStatus,
-          cabinClass: flight.cabinClass || "ECONOMY",
-          totalDuration: Number(flight.totalDuration) || 0,
-          layoverTimes: Array.isArray(flight.layoverTimes)
-            ? flight.layoverTimes
-            : [],
-          insuranceType: insurance || null,
-
-          // Create payment record
-          payment: {
+      price: priceBreakdown.baseTicketPrice,
+      insuranceType: selectedInsurance || null,
+      currency: priceBreakdown.currency,
+      status: BookingStatus.CONFIRMED,
+      totalPrice: priceBreakdown.totalPrice,
+      cabinClass: flight.cabinClass,
+      layoverTimes: flight.layoverTimes,
+      totalDuration: flight.totalDuration,
+      addOnsData: addOnsData,
+      flights: {
+        create: flightRecords,
+      },
+      passengers: {
+        create: passengers.map((p) => ({
+          passengerType: p.type as PassengerType,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          dateOfBirth: new Date(p.dateOfBirth),
+          gender: p.gender as Gender,
+          passportNumber: p.passportNumber || null,
+          nationality: p.nationality || null,
+          specialRequests: p.specialRequests || null,
+          email: p.email || null,
+          phone: p.phone || null,
+        })),
+      },
+      insurance: selectedInsurance
+        ? {
             create: {
-              amount: Number(priceBreakdown.totalPrice) || 0,
-              currency: priceBreakdown.currency || "USD",
-              status: "COMPLETED" as PaymentStatus,
-              paymentMethod: "CARD",
+              coverageType: selectedInsurance,
+              price: priceBreakdown.insurancePrice,
+              terms: "",
+              packageType: selectedInsurance,
             },
-          },
-
-          // Create insurance record if selected
-          insurance: insurance
-            ? {
-                create: {
-                  coverageType: insurance,
-                  packageType: insurance,
-                  price: Number(priceBreakdown.insurancePrice) || 0,
-                  terms: "Standard Terms Apply",
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                },
-              }
-            : undefined,
-
-          // Create passengers
-          passengers: {
-            create: passengers.map((passenger: any) => ({
-              firstName: passenger.firstName || "",
-              lastName: passenger.lastName || "",
-              dateOfBirth: new Date(passenger.dateOfBirth),
-              gender: passenger.gender || "OTHER",
-              passportNumber: passenger.passportNumber || null,
-              nationality: passenger.nationality || null,
-              email: passenger.email || null,
-              phone: passenger.phone || null,
-              specialRequests: passenger.specialRequests || null,
-              passengerType: (passenger.type || "ADULT") as PassengerType,
-            })),
-          },
-
-          // Create flight segments
-          flights: {
-            create: flight.segments.map((segment: any) => ({
-              airlineCode: segment.airlineCode || "",
-              airline: segment.airline || "",
-              flightNumber: segment.flightNumber || "",
-              departureTime: new Date(segment.departureDatetime),
-              arrivalTime: new Date(segment.arrivalDatetime),
-              origin: segment.origin || "",
-              destination: segment.destination || "",
-              originTerminal: segment.terminal?.departure || null,
-              destTerminal: segment.terminal?.arrival || null,
-              duration: Number(segment.duration) || 0,
-              price: Number(flight.price) / flight.segments.length,
-              currency: flight.currency || "USD",
-              isLayover: Boolean(flight.isLayover),
-              layoverDuration: Number(segment.layoverDuration) || null,
-              status: segment.status || "SCHEDULED",
-              aircraft: segment.aircraft || {},
-              amenities: segment.amenities || {},
-              baggage: segment.baggage || {},
-              originDetails: segment.originDetails || {},
-              destinationDetails: segment.destinationDetails || {},
-            })),
-          },
-
-          // Create add-ons if any
-          addOns: addons?.length
-            ? {
-                create: addons.map((addon: string) => ({
-                  name: addon || "",
-                  type: addon || "",
-                  price: Number(priceBreakdown.addOnsPrices?.[addon]) || 0,
-                  currency: priceBreakdown.currency || "USD",
-                  description: `${(addon || "")
-                    .split("-")
-                    .join(" ")
-                    .toUpperCase()} Service`,
-                })),
-              }
-            : undefined,
+          }
+        : undefined,
+      payment: {
+        create: {
+          amount: priceBreakdown.totalPrice,
+          currency: priceBreakdown.currency,
+          status: PaymentStatus.COMPLETED,
+          paymentMethod: "TEST",
         },
-        include: {
-          passengers: true,
-          flights: true,
-          addOns: true,
-          insurance: true,
-          payment: true,
-        },
-      });
+      },
+    },
+    include: {
+      flights: true,
+      passengers: true,
+      insurance: true,
+      payment: true,
+    },
+  });
 
-      console.log("Booking created successfully:", newBooking.id);
-      return newBooking;
-    });
-
-    return booking;
-  } catch (error) {
-    console.error("Detailed error in createCompleteBooking:", {
-      error,
-      message: error instanceof Error ? error.message : "Unknown error",
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    throw error;
-  }
+  return booking;
 }

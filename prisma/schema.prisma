@@ -74,7 +74,7 @@ model Booking {
   cabinClass    String
   layoverTimes  Int[]
   totalDuration Int
-  addOns        AddOn[]
+  addOnsData    Json?
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   flights       Flight[]
   insurance     Insurance?
@@ -163,19 +163,6 @@ model Flight {
   status             String
   aircraft           Json?
   booking            Booking  @relation(fields: [bookingId], references: [id])
-
-  @@index([bookingId])
-}
-
-model AddOn {
-  id          String  @id @default(cuid())
-  bookingId   String
-  name        String
-  description String?
-  price       Float
-  currency    String
-  type        String
-  booking     Booking @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
 }
