@@ -25,6 +25,7 @@ import { CreditCard, CheckCircle, TriangleAlert } from "lucide-react";
 import { useBookingStore } from "@/store/bookingStore";
 import { ClassicSpinner } from "react-spinners-kit";
 import { useRouter } from "next/navigation";
+import { createCompleteBooking } from "@/lib/bookingService";
 import { useSession } from "next-auth/react";
 
 const paymentSchema = z.object({
@@ -47,14 +48,14 @@ export default function Payment() {
   const form = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      cardNumber: "4242424242424242",
-      cardHolder: "Test User",
-      expiryDate: "12/25",
-      cvv: "123",
+      cardNumber: "4242424242424242", // Stripe test card number
+      cardHolder: "Test User", // Default cardholder name
+      expiryDate: "12/25", // Future expiry date
+      cvv: "123", // Default CVV
     },
   });
 
-  // Autofill with the first passenger's name if available
+  // Autofill with passenger name if available
   useEffect(() => {
     if (temporaryBooking.passengers.length > 0) {
       const firstPassenger = temporaryBooking.passengers[0];
@@ -66,12 +67,14 @@ export default function Payment() {
     }
   }, [temporaryBooking.passengers, form]);
 
+  // Add session status check
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin?callbackUrl=/booking/payment");
     }
   }, [status, router]);
 
+  // Show loading state while session is loading
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-[350px]">
@@ -80,24 +83,6 @@ export default function Payment() {
     );
   }
 
-  // Helper function to safely parse localStorage JSON data.
-  // It handles data that may be double-stringified.
-  const safeParse = (key: string) => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return {};
-    try {
-      let parsed = JSON.parse(raw);
-      if (typeof parsed === "string") {
-        parsed = JSON.parse(parsed);
-      }
-      return parsed;
-    } catch (error) {
-      console.error(`Error parsing localStorage key ${key}:`, error);
-      return {};
-    }
-  };
-
-  // Call the API endpoint to confirm the booking using stored data.
   const handleBookingConfirmation = async () => {
     try {
       if (status !== "authenticated" || !session?.user?.id) {
@@ -105,56 +90,33 @@ export default function Payment() {
         throw new Error("Please sign in to complete your booking");
       }
 
-      // Use keys that include the current session's user ID.
-      const bookingKey = `user_data_${session.user.id}_booking`;
-      const flightKey = `user_data_${session.user.id}_selectedFlight`;
+      // Get stored booking data
+      const bookingData = JSON.parse(
+        localStorage.getItem(`user_data_${session.user.id}_booking`) || "{}"
+      );
 
-      const bookingDataRaw = localStorage.getItem(bookingKey);
-      const selectedFlightRaw = localStorage.getItem(flightKey);
-
-      if (!bookingDataRaw || !selectedFlightRaw) {
-        throw new Error(
-          `Booking data or selected flight not found in localStorage for user ${session.user.id}.`
-        );
-      }
-
-      const bookingData = safeParse(bookingKey);
-      const selectedFlight = safeParse(flightKey);
+      const selectedFlight = JSON.parse(
+        localStorage.getItem(`user_data_${session.user.id}_selectedFlight`) ||
+          "{}"
+      );
 
       const completeBookingData = {
         flight: selectedFlight,
         ...bookingData,
       };
 
-      console.log("Complete Booking Data:", completeBookingData);
+      const booking = await createCompleteBooking(
+        session.user.id,
+        completeBookingData
+      );
 
-      if (
-        !completeBookingData ||
-        Object.keys(completeBookingData).length === 0 ||
-        !completeBookingData.flight ||
-        !completeBookingData.passengers ||
-        !completeBookingData.priceBreakdown
-      ) {
-        throw new Error("Incomplete booking data. Please complete all steps.");
-      }
-
-      const response = await fetch("/api/bookings/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: session.user.id,
-          bookingData: completeBookingData,
-        }),
-      });
-
-      if (!response.ok) {
+      if (!booking) {
         throw new Error("Failed to create booking");
       }
-      const booking = await response.json();
 
-      // Clear stored data upon successful booking
-      localStorage.removeItem(bookingKey);
-      localStorage.removeItem(flightKey);
+      // Clear only the user-specific data
+      localStorage.removeItem(`user_data_${session.user.id}_booking`);
+      localStorage.removeItem(`user_data_${session.user.id}_selectedFlight`);
 
       setIsPaymentComplete(true);
       return booking;
@@ -169,16 +131,16 @@ export default function Payment() {
     setError(null);
 
     try {
+      // Log the data being sent
       console.log("Payment data:", {
-        selectedFlight: localStorage.getItem(
-          `user_data_${session?.user?.id}_selectedFlight`
-        ),
-        bookingData: localStorage.getItem(
-          `user_data_${session?.user?.id}_booking`
-        ),
+        selectedFlight: localStorage.getItem("selectedFlight"),
+        passengerData: localStorage.getItem("passengerData"),
+        addonsData: localStorage.getItem("addonsData"),
+        selectedInsurance: localStorage.getItem("selectedInsurance"),
+        priceBreakdown: localStorage.getItem("priceBreakdown"),
       });
 
-      // Simulate payment processing delay (5-12 seconds)
+      // Simulate payment processing
       await new Promise((resolve) =>
         setTimeout(resolve, Math.random() * (12000 - 5000) + 5000)
       );
