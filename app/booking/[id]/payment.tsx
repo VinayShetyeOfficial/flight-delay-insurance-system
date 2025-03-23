@@ -41,7 +41,7 @@ export default function Payment() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: session, status } = useSession({ required: true });
-  const { temporaryBooking } = useBookingStore();
+  const { temporaryBooking, setPaymentComplete } = useBookingStore();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof paymentSchema>>({
@@ -157,6 +157,7 @@ export default function Payment() {
       localStorage.removeItem(flightKey);
 
       setIsPaymentComplete(true);
+      setPaymentComplete(true);
       return booking;
     } catch (error) {
       console.error("Booking creation failed:", error);
@@ -187,6 +188,7 @@ export default function Payment() {
       console.log("Booking confirmed:", booking);
 
       setIsPaymentComplete(true);
+      setPaymentComplete(true);
     } catch (error) {
       console.error("Payment processing failed:", error);
       setError(error instanceof Error ? error.message : "Payment failed");
