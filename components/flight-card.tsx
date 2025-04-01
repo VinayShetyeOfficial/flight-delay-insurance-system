@@ -10,9 +10,15 @@ import {
   Wifi,
   Power,
   Coffee,
+  Calendar,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration } from "@/lib/utils";
+import {
+  getCurrencySymbol,
+  formatDuration,
+  formatCurrency,
+  formatCustomDate,
+} from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -22,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useFlightStore } from "@/store/flightStore";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -38,6 +45,8 @@ interface FlightSegment {
   };
   aircraft?: string;
   status?: string;
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // The FlightCardProps now optionally include layover flight details and a searchId.
@@ -82,6 +91,8 @@ interface FlightCardProps {
     children: number;
     infants: number;
   };
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // Debug function for direct flights.
@@ -122,7 +133,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 
   const segments = props.segments;
   const totalPrice = props.totalPrice || props.price;
-  const layoverTime = props.layoverTime || 0;
+
+  // Use the same calculateLayoverTime function for layover calculations
+  const layoverTimes: number[] = [];
+  for (let i = 0; i < segments.length - 1; i++) {
+    const currentLayover = calculateLayoverTime(segments[i], segments[i + 1]);
+    layoverTimes.push(currentLayover);
+  }
+  const totalLayoverTime = layoverTimes.reduce((acc, time) => acc + time, 0);
 
   let output = `
 ╔════════════════════════════════════════════════════════════╗
@@ -131,11 +149,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Total Journey Summary:
 ║ From: ${segments[0].origin} To: ${segments[segments.length - 1].destination}
 ║ Total Duration: ${formatDuration(
-    segments.reduce((acc, seg) => acc + seg.duration, 0) + layoverTime
+    segments.reduce((acc, seg) => acc + seg.duration, 0) + totalLayoverTime
   )}
 ║ Total Price: ${getCurrencySymbol(props.currency)}${totalPrice.toLocaleString(
     undefined,
-    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
   )}
 ╠════════════════════════════════════════════════════════════╣`;
 
@@ -155,10 +176,11 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Status: ${segment.status || "SCHEDULED"}`;
 
     if (index < segments.length - 1) {
+      const layover = calculateLayoverTime(segment, segments[index + 1]);
       output += `
 ╠════════════════════════════════════════════════════════════╣
 ║ LAYOVER AT ${segment.destination}:
-║ Duration: ${formatDuration(layoverTime)}
+║ Duration: ${formatDuration(layover)}
 ║ Next Flight Departs: ${segments[index + 1].departureTime}
 ╠════════════════════════════════════════════════════════════╣`;
     }
@@ -185,29 +207,55 @@ const getFlightClassLabel = (cabinClass: string) => {
   }
 };
 
-// Add this helper function at the top of the component
-const formatDurationHM = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+// Update the layover time calculation helper function
+const calculateLayoverTime = (
+  currentSegment: FlightSegment,
+  nextSegment: FlightSegment
+): number => {
+  // Parse times using 12-hour format (e.g., "2:30 PM")
+  const parseTime = (timeStr: string) => {
+    const [time, period] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
 
-  // If duration is 24 hours or more, show in days
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-
-    if (remainingHours === 0) {
-      return `${days} ${days === 1 ? "day" : "days"}`;
+    // Convert to 24-hour format
+    if (period === "PM" && hours !== 12) {
+      hours += 12;
+    } else if (period === "AM" && hours === 12) {
+      hours = 0;
     }
 
-    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
+    return { hours, minutes };
+  };
+
+  const arrival = parseTime(currentSegment.arrivalTime);
+  const departure = parseTime(nextSegment.departureTime);
+
+  // Create Date objects for comparison
+  const arrivalTime = new Date(2000, 0, 1, arrival.hours, arrival.minutes);
+  const departureTime = new Date(
+    2000,
+    0,
+    1,
+    departure.hours,
+    departure.minutes
+  );
+
+  // If departure is earlier than arrival, add 24 hours
+  if (departureTime < arrivalTime) {
+    departureTime.setDate(departureTime.getDate() + 1);
   }
 
-  // For durations less than 24 hours
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
+  // Calculate difference in minutes
+  const diffMinutes =
+    (departureTime.getTime() - arrivalTime.getTime()) / (1000 * 60);
+  return Math.round(diffMinutes);
+};
 
-  return `${hours}h ${remainingMinutes}m`;
+// Update the duration formatting function
+const formatDurationHM = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
 };
 
 // Add these interfaces at the top
@@ -219,7 +267,7 @@ interface TravelPayoutsLocation {
   main_airport_name?: string;
 }
 
-// Add this helper function near the top of the file
+// Add this helper function at the top of the file
 const AirlineLogo = ({
   airlineCode,
   airline,
@@ -263,16 +311,16 @@ export function FlightCardSkeleton() {
       >
         {/* Airline logo and name */}
         <div className="flex items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-full bg-white/20" />
+          <Skeleton className="h-12 w-12 rounded-full bg-white/30" />
           <div className="space-y-2">
-            <Skeleton className="h-6 w-32 bg-white/20" />
-            <Skeleton className="h-4 w-24 bg-white/20" />
+            <Skeleton className="h-6 w-32 bg-white/30" />
+            <Skeleton className="h-4 w-24 bg-white/30" />
           </div>
         </div>
         {/* Price */}
         <div className="text-right">
-          <Skeleton className="h-8 w-28 bg-white/20 mb-1" />
-          <Skeleton className="h-4 w-20 bg-white/20 ml-auto" />
+          <Skeleton className="h-8 w-28 bg-white/30 mb-1" />
+          <Skeleton className="h-4 w-20 bg-white/30 ml-auto" />
         </div>
       </div>
 
@@ -416,20 +464,65 @@ export default function FlightCard(props: FlightCardProps) {
     return `Route: ${props.origin} → ${props.destination}`;
   };
 
-  const handleSelectFlight = () => {
-    if (props.onSelect) {
-      props.onSelect();
-    }
+  const handleSelect = () => {
+    const completeFlightData = {
+      segments: props.isLayover
+        ? props.segments.map((segment) => ({
+            ...segment,
+            baggage: props.baggage, // Ensure baggage is passed to each segment
+          }))
+        : [
+            {
+              airline: props.airline,
+              airlineCode: props.airlineCode,
+              flightNumber: props.flightNumber,
+              origin: props.origin,
+              originCity: props.originCity,
+              destination: props.destination,
+              destinationCity: props.destinationCity,
+              departureTime: props.departureTime,
+              arrivalTime: props.arrivalTime,
+              duration: props.duration,
+              terminal: props.terminal,
+              aircraft: props.aircraft,
+              locationDetails: locationDetails,
+              baggage: props.baggage
+                ? {
+                    ...props.baggage,
+                    includedCheckedBags: props.baggage.includedCheckedBags || 0,
+                    includedCabinBags: props.baggage.includedCabinBags || 0,
+                  }
+                : undefined,
+            },
+          ],
+      isLayover: props.isLayover,
+      layoverDuration: props.layoverTime || 0,
+      price: Number(props.price || 0),
+      totalPrice: Number(props.totalPrice || props.price || 0),
+      currency: props.currency || "USD",
+      cabinClass: props.cabinClass || "ECONOMY",
+      totalDuration: props.duration,
+      locationDetails: locationDetails,
+    };
+    useFlightStore.getState().setSelectedFlight(completeFlightData);
 
-    // Add passenger counts to the URL when navigating
-    const {
-      adults = 1,
-      children = 0,
-      infants = 0,
-    } = props.passengerCounts || {};
-    router.push(
-      `/booking/${props.id}?adults=${adults}&children=${children}&infants=${infants}`
-    );
+    // Ensure we have passengerCounts before proceeding
+    if (props.passengerCounts) {
+      const { adults, children, infants } = props.passengerCounts;
+
+      // Add passenger counts to URL parameters
+      const searchParams = new URLSearchParams({
+        adults: adults.toString(),
+        children: children.toString(),
+        infants: infants.toString(),
+      });
+
+      // Navigate to booking page with passenger counts
+      router.push(`/booking/${props.id}?${searchParams.toString()}`);
+    } else {
+      // Fallback to default values if no passenger counts provided
+      router.push(`/booking/${props.id}?adults=1&children=0&infants=0`);
+    }
   };
 
   if (props.isLoading) {
@@ -472,11 +565,7 @@ export default function FlightCard(props: FlightCardProps) {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">
-              {getCurrencySymbol(props.currency)}
-              {props.price.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(Number(props.price || 0), props.currency)}
             </p>
             <p className="text-sm text-white/80">Ticket Price</p>
           </div>
@@ -491,9 +580,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div>
             <p className="text-2xl font-bold">{props.departureTime}</p>
             <p className="font-medium">({props.origin})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.departure || "D"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.departure || "D"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.departureDatetime)}
+              </div>
             </div>
           </div>
 
@@ -523,9 +618,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div className="text-right">
             <p className="text-2xl font-bold">{props.arrivalTime}</p>
             <p className="font-medium">({props.destination})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.arrival || "B"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1 items-end">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.arrival || "B"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.arrivalDatetime)}
+              </div>
             </div>
           </div>
         </div>
@@ -543,7 +644,7 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={handleSelectFlight} className="w-full md:w-auto">
+            <Button onClick={handleSelect} className="w-full md:w-auto">
               Select Flight
             </Button>
           </div>
@@ -565,17 +666,21 @@ export default function FlightCard(props: FlightCardProps) {
                       <div className="flex items-center gap-2">
                         <Plane className="h-4 w-4 shrink-0" />
                         {props.isLayover
-                          ? `${props.segments?.length - 1} stop(s)`
+                          ? `${props.segments?.length - 1} ${
+                              props.segments?.length - 1 === 1
+                                ? "Stop"
+                                : "Stops"
+                            }`
                           : "Non-stop flight"}
                       </div>
+
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 shrink-0" />
                         Total duration: {formatDurationHM(props.duration)}
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} ({props.originCity}) →{" "}
-                        {props.destination} ({props.destinationCity})
+                        {props.origin} → {props.destination}
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
@@ -705,10 +810,16 @@ export default function FlightCard(props: FlightCardProps) {
                                       ?.main_airport_name
                                   : locationDetails[segment.origin]?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.departure || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.departureDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.departureTime}
                               </div>
                             </div>
@@ -722,10 +833,16 @@ export default function FlightCard(props: FlightCardProps) {
                                   : locationDetails[segment.destination]
                                       ?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.arrival || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.arrivalDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.arrivalTime}
                               </div>
                             </div>
@@ -758,7 +875,10 @@ export default function FlightCard(props: FlightCardProps) {
                             <Clock className="h-3 w-3 inline mr-1" />
                             Layover:{" "}
                             {formatDurationHM(
-                              props.layoverTime / (props.segments.length - 1)
+                              calculateLayoverTime(
+                                segment,
+                                props.segments[index + 1]
+                              )
                             )}
                           </div>
                         )}
@@ -849,10 +969,18 @@ export default function FlightCard(props: FlightCardProps) {
                                     ?.main_airport_name
                                 : locationDetails[props.origin]?.name || ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.departure || "-"}
                             </div>
-                            <div className="text-xs">{props.departureTime}</div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.departureDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {props.departureTime}
+                            </div>
                           </div>
 
                           <div className="text-right">
@@ -864,10 +992,18 @@ export default function FlightCard(props: FlightCardProps) {
                                 : locationDetails[props.destination]?.name ||
                                   ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.arrival || "-"}
                             </div>
-                            <div className="text-xs">{props.arrivalTime}</div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.arrivalDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Clock className="h-3 w-3" />
+                              {props.arrivalTime}
+                            </div>
                           </div>
                         </div>
 
