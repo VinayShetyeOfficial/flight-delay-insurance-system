@@ -87,19 +87,6 @@ export default function SignUpPage() {
 
       const responseData = await response.json();
 
-      // Handle database connection error
-      if (responseData.error?.includes("database server")) {
-        toast({
-          title: "Connection Error",
-          description:
-            "We're experiencing technical difficulties. Please try again later.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Handle existing email error
       if (response.status === 409) {
         setError("email", {
           type: "manual",
@@ -109,7 +96,6 @@ export default function SignUpPage() {
         return;
       }
 
-      // Handle other API errors
       if (!response.ok) {
         throw new Error(responseData.error || "Failed to create account");
       }
@@ -125,18 +111,12 @@ export default function SignUpPage() {
       router.push(`/verify?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       console.error("Signup error:", error);
-
-      // Handle network or other errors
-      const errorMessage =
-        error instanceof Error
-          ? error.message.includes("database server")
-            ? "Unable to connect to the service. Please try again later."
-            : error.message
-          : "Failed to create account. Please try again.";
-
       toast({
         title: "Error",
-        description: errorMessage,
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create account. Please try again.",
         variant: "destructive",
       });
     } finally {
