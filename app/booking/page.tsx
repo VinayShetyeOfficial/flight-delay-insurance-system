@@ -7,6 +7,7 @@ import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -23,113 +24,30 @@ import {
   Search,
   Filter,
   Loader2,
-  ArrowLeft,
-  LayoutDashboard,
-  Package,
-  ClipboardCheck,
-  CreditCard,
 } from "lucide-react";
 import { addDays } from "date-fns";
-import { cn } from "@/lib/utils";
 
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
-import { LocationSuggestions } from "@/components/location-suggestions";
-import { FlightCardSkeleton } from "@/components/flight-card";
-import { FlightFilters, FilterOptions } from "@/components/flight-filters";
 
-// Import default select components (using Radix UI)
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-
-// Updated Zod Schema with better validation messages
+// Updated Zod Schema with default currency enforced to "USD"
 const bookingSchema = z
   .object({
-    origin: z
-      .string()
-      .min(
-        1,
-        "Please enter an airport code (e.g., LAX) or city name (e.g., London)"
-      ),
-    originName: z.string().optional(),
-    destination: z
-      .string()
-      .min(
-        1,
-        "Please enter an airport code (e.g., JFK) or city name (e.g., Paris)"
-      ),
-    destinationName: z.string().optional(),
-    departureDate: z.date({
-      required_error: "Departure date is required",
-    }),
+    origin: z.string().length(3, "Airport code must be 3 characters"),
+    destination: z.string().length(3, "Airport code must be 3 characters"),
+    departureDate: z.date(),
     returnDate: z.date().optional(),
-    adults: z
-      .number()
-      .min(1, "At least 1 adult is required")
-      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
-    children: z
-      .number()
-      .min(0, "Number of children cannot be negative")
-      .max(9, "Maximum 9 seated travelers allowed (adults + children)"),
-    infants: z.number().min(0, "Number of infants cannot be negative"),
+    adults: z.number().min(1, "At least 1 adult is required").max(9),
+    children: z.number().min(0).max(9),
+    infants: z.number().min(0).max(9),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
     currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
   })
   .refine((data) => data.origin !== data.destination, {
-    message: "Origin and destination airports cannot be the same",
+    message: "Origin and Destination cannot be the same",
     path: ["destination"],
-  })
-  .refine(
-    (data) => {
-      if (data.origin.length === 3) {
-        return data.origin.toUpperCase() === data.origin;
-      }
-      return true;
-    },
-    {
-      message: "Airport code must be 3 uppercase letters (e.g., LAX)",
-      path: ["origin"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.destination.length === 3) {
-        return data.destination.toUpperCase() === data.destination;
-      }
-      return true;
-    },
-    {
-      message: "Airport code must be 3 uppercase letters (e.g., JFK)",
-      path: ["destination"],
-    }
-  )
-  .refine(
-    (data) => {
-      // Check total seated travelers (adults + children) <= 9
-      return data.adults + data.children <= 9;
-    },
-    {
-      message:
-        "Total number of seated travelers (adults + children) cannot exceed 9",
-      path: ["children"], // Show error on children field
-    }
-  )
-  .refine(
-    (data) => {
-      // Check infants <= adults
-      return data.infants <= data.adults;
-    },
-    {
-      message: "Number of infants cannot exceed number of adults",
-      path: ["infants"], // Show error on infants field
-    }
-  );
+  });
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
@@ -162,36 +80,7 @@ const insuranceOptions = [
   },
 ];
 
-const steps = [
-  {
-    id: "passengers",
-    name: "Passenger Info",
-    icon: Users,
-  },
-  {
-    id: "addons",
-    name: "Add-ons",
-    icon: Package,
-  },
-  {
-    id: "review",
-    name: "Review",
-    icon: ClipboardCheck,
-  },
-  {
-    id: "payment",
-    name: "Payment",
-    icon: CreditCard,
-  },
-];
-
-// Add this CSS class to your globals.css or a styled component
-const styles = {
-  hideNumberInputSpinButton:
-    "appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-};
-
-export default function BookingPage() {
+const BookingPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -215,18 +104,6 @@ export default function BookingPage() {
     nonStop: boolean;
   } | null>(null);
   const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
-  const [originSearchEnabled, setOriginSearchEnabled] = useState(true);
-  const [destinationSearchEnabled, setDestinationSearchEnabled] =
-    useState(true);
-  const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
-  const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  // Add state for passenger counts
-  const [passengerCounts, setPassengerCounts] = useState({
-    adults: 1,
-    children: 0,
-    infants: 0,
-  });
 
   const {
     register,
@@ -234,8 +111,7 @@ export default function BookingPage() {
     control,
     watch,
     setValue,
-    setError,
-    formState: { errors, touchedFields, isSubmitted },
+    formState: { errors },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
@@ -245,7 +121,6 @@ export default function BookingPage() {
       currency: "USD",
       tripType: "roundTrip",
     },
-    mode: "onChange",
   });
 
   // Watch dates, trip type, origin, and destination
@@ -350,8 +225,8 @@ export default function BookingPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          origin: data.origin.trim(),
-          destination: data.destination.trim(),
+          origin: data.origin,
+          destination: data.destination,
           departureDate: data.departureDate.toISOString().split("T")[0],
           returnDate: data.returnDate
             ? data.returnDate.toISOString().split("T")[0]
@@ -377,44 +252,8 @@ export default function BookingPage() {
       }
 
       setFlights(flights);
+      // Reset pagination to initial count of 5 when new search is performed.
       setDisplayCount(5);
-
-      // Store search booking fields in localStorage
-      const searchParams = {
-        origin: data.origin.trim().toUpperCase(),
-        destination: data.destination.trim().toUpperCase(),
-        departureDate: data.departureDate.toISOString().split("T")[0],
-        returnDate: data.returnDate
-          ? data.returnDate.toISOString().split("T")[0]
-          : undefined,
-        adults: data.adults,
-        children: data.children,
-        infants: data.infants,
-        class: data.class,
-        currency: data.currency,
-        nonStop: nonStop,
-      };
-      localStorage.setItem("bookingSearch", JSON.stringify(searchParams));
-
-      // Store complete booking form data
-      const bookingFormData = {
-        origin: data.origin.trim().toUpperCase(),
-        originName: data.originName,
-        destination: data.destination.trim().toUpperCase(),
-        destinationName: data.destinationName,
-        departureDate: data.departureDate.toISOString().split("T")[0],
-        returnDate: data.returnDate
-          ? data.returnDate.toISOString().split("T")[0]
-          : undefined,
-        adults: data.adults,
-        children: data.children || 0,
-        infants: data.infants || 0,
-        class: data.class,
-        currency: data.currency,
-        tripType: data.tripType,
-        nonStop: nonStop,
-      };
-      localStorage.setItem("bookingFormData", JSON.stringify(bookingFormData));
     } catch (error) {
       console.error("Flight Search Error:", error);
       toast({
@@ -436,10 +275,9 @@ export default function BookingPage() {
         .toISOString()
         .split("T")[0];
 
-      // Ensure trimmed values for origin and destination
       const searchParams = {
-        origin: data.origin.trim().toUpperCase(),
-        destination: data.destination.trim().toUpperCase(),
+        origin: data.origin.toUpperCase(),
+        destination: data.destination.toUpperCase(),
         departureDate: formattedDepartureDate,
         returnDate: data.returnDate
           ? data.returnDate.toISOString().split("T")[0]
@@ -516,162 +354,30 @@ export default function BookingPage() {
     }
   };
 
+  // Filter flights to display only those whose source and final destination match the entered values.
+  const filteredFlights = flights;
+
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
-    const flightKey = `${flight.id}-${searchId}`;
-    return (
-      <FlightCard
-        key={flightKey}
-        {...flight}
-        passengerCounts={{
-          adults: watch("adults"),
-          children: watch("children"),
-          infants: watch("infants"),
-        }}
-        searchId={searchId}
-      />
-    );
-  };
-
-  // Update filtered flights when the main flights array changes
-  useEffect(() => {
-    setFilteredFlights(flights);
-    const airlines = Array.from(
-      new Set(flights.map((flight) => flight.airline))
-    );
-    setUniqueAirlines(airlines);
-  }, [flights]);
-
-  // Handle filter changes
-  const handleFilterChange = (filters: FilterOptions) => {
-    let filtered = [...flights];
-
-    // Apply airline filters
-    if (filters.airlines.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.airlines.includes(flight.airline)
-      );
-    }
-
-    // Apply non-stop filter
-    if (filters.nonStop) {
-      filtered = filtered.filter((flight) => !flight.isLayover);
-    }
-
-    // Apply cabin class filter
-    if (filters.cabinClass.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.cabinClass.includes(flight.cabinClass)
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (filters.sortBy) {
-        case "price_low":
-          return a.price - b.price;
-        case "price_high":
-          return b.price - a.price;
-        case "duration_short":
-          return a.duration - b.duration;
-        case "departure_early":
-          return (
-            new Date(a.departureTime).getTime() -
-            new Date(b.departureTime).getTime()
-          );
-        case "arrival_early":
-          return (
-            new Date(a.arrivalTime).getTime() -
-            new Date(b.arrivalTime).getTime()
-          );
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredFlights(filtered);
-  };
-
-  // Add validation for passenger counts
-  const validatePassengerCounts = (
-    adults: number,
-    children: number,
-    infants: number
-  ) => {
-    const totalSeated = adults + children;
-
-    if (totalSeated > 9) {
-      setError("children", {
-        type: "custom",
-        message: "Total number of seated travelers cannot exceed 9",
-      });
-      return false;
-    }
-
-    if (infants > adults) {
-      setError("infants", {
-        type: "custom",
-        message: "Number of infants cannot exceed number of adults",
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  // Update passenger count handlers
-  const handleAdultsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("adults", value);
-    setPassengerCounts((prev) => ({ ...prev, adults: value }));
-  };
-
-  const handleChildrenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("children", value);
-    setPassengerCounts((prev) => ({ ...prev, children: value }));
-  };
-
-  const handleInfantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setValue("infants", value);
-    setPassengerCounts((prev) => ({ ...prev, infants: value }));
+    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
+    return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
-        {/* Page Header with Dashboard Button */}
-        <div className="flex flex-col space-y-4 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">
-                Flight Booking
-              </h1>
-              <p className="text-muted-foreground">
-                Search and book flights with insurance coverage
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 hover:bg-muted"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </Button>
-          </div>
+        {/* Page Header */}
+        <div className="flex flex-col space-y-2 mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Flight Booking</h1>
+          <p className="text-muted-foreground">
+            Search and book flights with insurance coverage
+          </p>
         </div>
 
         {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
-            {/* IMPORTANT: autoComplete="off" on the form + each input */}
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="space-y-6"
-              autoComplete="off"
-            >
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Trip Type & Flight Mode Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Trip Type */}
@@ -743,29 +449,15 @@ export default function BookingPage() {
                     <PlaneTakeoff className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="origin"
-                      autoComplete="off"
-                      {...register("origin", {
-                        onChange: (e) => {
-                          if (!originSearchEnabled) {
-                            setOriginSearchEnabled(true);
-                          }
-                          setValue("origin", e.target.value.trim());
-                        },
-                      })}
-                      placeholder="Enter origin city or airport"
+                      {...register("origin")}
+                      placeholder="Enter origin city"
                       className="pl-10"
-                    />
-                    <LocationSuggestions
-                      searchTerm={watch("origin")}
-                      onSelect={({ code, name }) => {
-                        setValue("origin", code);
-                        setValue("originName", name);
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
                       }}
-                      isEnabled={originSearchEnabled}
-                      onSearchStateChange={setOriginSearchEnabled}
                     />
                   </div>
-                  {errors.origin && (touchedFields.origin || isSubmitted) && (
+                  {errors.origin && (
                     <p className="text-destructive text-sm">
                       {errors.origin.message}
                     </p>
@@ -778,34 +470,19 @@ export default function BookingPage() {
                     <PlaneLanding className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="destination"
-                      autoComplete="off"
-                      {...register("destination", {
-                        onChange: (e) => {
-                          if (!destinationSearchEnabled) {
-                            setDestinationSearchEnabled(true);
-                          }
-                          setValue("destination", e.target.value.trim());
-                        },
-                      })}
-                      placeholder="Enter destination city or airport"
+                      {...register("destination")}
+                      placeholder="Enter destination city"
                       className="pl-10"
-                    />
-                    <LocationSuggestions
-                      searchTerm={watch("destination")}
-                      onSelect={({ code, name }) => {
-                        setValue("destination", code);
-                        setValue("destinationName", name);
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
                       }}
-                      isEnabled={destinationSearchEnabled}
-                      onSearchStateChange={setDestinationSearchEnabled}
                     />
                   </div>
-                  {errors.destination &&
-                    (touchedFields.destination || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.destination.message}
-                      </p>
-                    )}
+                  {errors.destination && (
+                    <p className="text-destructive text-sm">
+                      {errors.destination.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -825,12 +502,11 @@ export default function BookingPage() {
                       />
                     )}
                   />
-                  {errors.departureDate &&
-                    (touchedFields.departureDate || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.departureDate.message}
-                      </p>
-                    )}
+                  {errors.departureDate && (
+                    <p className="text-destructive text-sm">
+                      {errors.departureDate.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -860,18 +536,15 @@ export default function BookingPage() {
               {/* Passengers: Adults, Children, Infants */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <Label>Adults (12+ years)</Label>
+                  <Label>Adults</Label>
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("adults", {
-                        valueAsNumber: true,
-                        onChange: handleAdultsChange,
-                      })}
+                      {...register("adults", { valueAsNumber: true })}
                       min={1}
                       max={9}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
                   {errors.adults && (
@@ -882,19 +555,16 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Children (2-12 years)</Label>
+                  <Label>Children (2-12)</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("children", {
-                        valueAsNumber: true,
-                        onChange: handleChildrenChange,
-                      })}
+                      {...register("children", { valueAsNumber: true })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
                   {errors.children && (
@@ -905,19 +575,16 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Infants (0-2 years)</Label>
+                  <Label>Infants (0-2)</Label>
                   <div className="relative">
                     <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      {...register("infants", {
-                        valueAsNumber: true,
-                        onChange: handleInfantsChange,
-                      })}
+                      {...register("infants", { valueAsNumber: true })}
                       min={0}
                       max={9}
                       defaultValue={0}
-                      className={cn("pl-10", styles.hideNumberInputSpinButton)}
+                      className="pl-10"
                     />
                   </div>
                   {errors.infants && (
@@ -932,32 +599,15 @@ export default function BookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Class</Label>
-                  <Controller
-                    name="class"
-                    control={control}
-                    defaultValue="ECONOMY"
-                    render={({ field }) => (
-                      <div className="relative">
-                        <Select
-                          defaultValue={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Class" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ECONOMY">Economy</SelectItem>
-                            <SelectItem value="PREMIUM_ECONOMY">
-                              Premium Economy
-                            </SelectItem>
-                            <SelectItem value="BUSINESS">Business</SelectItem>
-                            <SelectItem value="FIRST">First</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  />
-                  {errors.class && (touchedFields.class || isSubmitted) && (
+                  <div className="relative">
+                    <Select {...register("class")} defaultValue="ECONOMY">
+                      <option value="ECONOMY">Economy</option>
+                      <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                      <option value="BUSINESS">Business</option>
+                      <option value="FIRST">First</option>
+                    </Select>
+                  </div>
+                  {errors.class && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
                     </p>
@@ -977,12 +627,11 @@ export default function BookingPage() {
                       />
                     )}
                   />
-                  {errors.currency &&
-                    (touchedFields.currency || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.currency.message}
-                      </p>
-                    )}
+                  {errors.currency && (
+                    <p className="text-destructive text-sm">
+                      {errors.currency.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1011,31 +660,21 @@ export default function BookingPage() {
         </Card>
 
         {/* Flight Results */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <FlightCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : flights.length > 0 ? (
+        {flights.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
                 Available Flights - Showing{" "}
-                {Math.min(displayCount, filteredFlights.length)} of{" "}
-                {filteredFlights.length} flights
+                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
+                flights
               </h2>
-              <FlightFilters
-                airlines={uniqueAirlines}
-                onFilterChange={handleFilterChange}
-              />
             </div>
 
             <div className="space-y-4">
-              {filteredFlights.slice(0, displayCount).map(renderFlightCard)}
+              {flights.slice(0, displayCount).map(renderFlightCard)}
             </div>
 
-            {displayCount < filteredFlights.length && (
+            {displayCount < flights.length && (
               <div className="text-center mt-6">
                 <Button
                   onClick={handleShowMore}
@@ -1065,7 +704,37 @@ export default function BookingPage() {
             </div>
           )
         )}
+
+        {/* Insurance Options */}
+        <Card className="mt-8">
+          <div className="p-6 space-y-4">
+            <h4 className="font-medium">Insurance Options</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insuranceOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedInsurance === option.id
+                      ? "border-primary bg-primary/5"
+                      : "hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedInsurance(option.id)}
+                >
+                  <div className="space-y-2">
+                    <h5 className="font-medium">{option.name}</h5>
+                    <p className="text-sm text-muted-foreground">
+                      {option.description}
+                    </p>
+                    <p className="text-lg font-bold">${option.price}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
-}
+};
+
+export default BookingPage;
