@@ -1,13 +1,27 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { NextAuthOptions } from "next-auth";
-import { compare } from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+import GoogleProvider from "next-auth/providers/google";
+import GitHubProvider from "next-auth/providers/github";
 import CredentialsProvider from "next-auth/providers/credentials";
+import bcrypt from "bcrypt";
+import { NextAuthOptions } from "next-auth";
+import { compare } from "bcrypt";
+import { prisma } from "@/lib/prisma";
+
+const prismaClient = new PrismaClient();
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prismaClient),
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    GitHubProvider({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -16,29 +30,28 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Please enter your email and password.");
+          throw new Error("Please enter both email and password");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        // First check if user exists
+        const user = await prismaClient.user.findUnique({
+          where: {
+            email: credentials.email,
+          },
         });
 
         if (!user) {
-          throw new Error(
-            "We couldn't find an account associated with this email."
-          );
+          throw new Error("UserNotFound");
         }
 
-        if (!user.emailVerified) {
-          throw new Error("UNVERIFIED_EMAIL");
-        }
-
-        const passwordMatch = await compare(
+        // Now check password if user exists
+        const isPasswordValid = await compare(
           credentials.password,
-          user.password
+          user.password!
         );
-        if (!passwordMatch) {
-          throw new Error("Invalid email or password.");
+
+        if (!isPasswordValid) {
+          throw new Error("InvalidCredentials");
         }
 
         return user;
