@@ -96,15 +96,13 @@ class AmadeusService {
 
         return {
           includedCheckedBags: checkedBags
-            ? checkedBags.quantity || (checkedBags.weight ? 1 : 0)
+            ? checkedBags.quantity || (checkedBags.weight ? 1 : 0) // Handle both quantity and weight-based
             : 0,
           includedCabinBags: cabinBags
-            ? cabinBags.quantity || (cabinBags.weight ? 1 : 0)
+            ? cabinBags.quantity || 1 // Default to 1 if cabin bag is allowed but quantity not specified
             : 0,
           checkedBagWeight: checkedBags?.weight || null,
           checkedBagWeightUnit: checkedBags?.weightUnit || null,
-          cabinBagWeight: cabinBags?.weight || null,
-          cabinBagWeightUnit: cabinBags?.weightUnit || null,
         };
       };
 
@@ -118,38 +116,15 @@ class AmadeusService {
             return null;
           }
 
-          // Get cabin class info from all segments
-          const fareDetails = offer.travelerPricings[0].fareDetailsBySegment;
-          const cabinInfo = fareDetails.map((detail: any) => ({
-            cabin: detail.cabin,
-            brandedFare: detail.brandedFareLabel || detail.brandedFare,
-          }));
-
-          // Get the highest class among segments (FIRST > BUSINESS > PREMIUM_ECONOMY > ECONOMY)
-          const cabinClassOrder = [
-            "FIRST",
-            "BUSINESS",
-            "PREMIUM_ECONOMY",
-            "ECONOMY",
-          ];
-          const highestCabinClass = cabinInfo.reduce(
-            (highest: string, current: any) => {
-              const currentIndex = cabinClassOrder.indexOf(current.cabin);
-              const highestIndex = cabinClassOrder.indexOf(highest);
-              return currentIndex < highestIndex ? current.cabin : highest;
-            },
-            "ECONOMY"
-          );
-
-          // Get baggage info from the first segment
-          const firstSegmentBaggage = fareDetails[0];
+          // Get baggage info from the first traveler's first segment
+          const firstSegmentBaggage =
+            offer.travelerPricings[0].fareDetailsBySegment[0];
           const baggageInfo = getBaggageInfo(firstSegmentBaggage);
 
-          // Get amenities (non-chargeable ones)
-          const amenities =
-            fareDetails[0].amenities
-              ?.filter((amenity: any) => !amenity.isChargeable)
-              ?.map((amenity: any) => amenity.description) || [];
+          // Get cabin class from the first segment
+          const cabinClass =
+            offer.travelerPricings[0].fareDetailsBySegment[0].cabin ||
+            params.travelClass;
 
           // Common flight data
           const baseFlightData = {
@@ -157,10 +132,8 @@ class AmadeusService {
             price: parseFloat(offer.price.total),
             currency: offer.price.currency,
             totalPrice: parseFloat(offer.price.grandTotal),
-            cabinClass: highestCabinClass,
-            brandedFare: cabinInfo[0].brandedFare,
+            cabinClass: cabinClass,
             baggage: baggageInfo,
-            amenities: amenities,
           };
 
           // Transform segments
@@ -177,8 +150,6 @@ class AmadeusService {
               destinationCity:
                 response.data.dictionaries.locations[segment.arrival.iataCode]
                   ?.cityCode || segment.arrival.iataCode,
-              departureDatetime: segment.departure.at,
-              arrivalDatetime: segment.arrival.at,
               departureTime: new Date(
                 segment.departure.at
               ).toLocaleTimeString(),
@@ -194,75 +165,46 @@ class AmadeusService {
             }))
           );
 
-          // Get location details from the API response
-          const locationDetails = response.data.dictionaries.locations || {};
-
           if (isLayover) {
+            const firstSegment = flightSegments[0];
+            const lastSegment = flightSegments[flightSegments.length - 1];
             const totalDuration = this.parseDuration(
               offer.itineraries[0].duration
             );
-
-            // Calculate actual flight time from segments
             const segmentsDuration = flightSegments.reduce(
               (acc, seg) => acc + seg.duration,
               0
             );
-
-            // Calculate layover time by comparing segment times
-            let totalLayoverTime = 0;
-            for (let i = 0; i < flightSegments.length - 1; i++) {
-              const currentSegment = flightSegments[i];
-              const nextSegment = flightSegments[i + 1];
-
-              // Use full datetime strings for accurate calculations
-              const currentArrival = new Date(currentSegment.arrivalDatetime);
-              const nextDeparture = new Date(nextSegment.departureDatetime);
-
-              // Calculate difference in minutes
-              const layoverMinutes =
-                (nextDeparture.getTime() - currentArrival.getTime()) /
-                (1000 * 60);
-              totalLayoverTime += layoverMinutes;
-            }
+            const layoverTime = totalDuration - segmentsDuration;
 
             return {
               ...baseFlightData,
               isLayover: true,
               segments: flightSegments,
-              layoverTime: totalLayoverTime,
-              locationDetails,
+              layoverTime,
               // Display data for the card
-              airline: flightSegments[0].airline,
-              airlineCode: flightSegments[0].airlineCode,
-              flightNumber: flightSegments[0].flightNumber,
-              origin: flightSegments[0].origin,
-              originCity: flightSegments[0].originCity,
-              destination:
-                flightSegments[flightSegments.length - 1].destination,
-              destinationCity:
-                flightSegments[flightSegments.length - 1].destinationCity,
-              departureTime: flightSegments[0].departureTime,
-              arrivalTime:
-                flightSegments[flightSegments.length - 1].arrivalTime,
+              airline: firstSegment.airline,
+              airlineCode: firstSegment.airlineCode,
+              flightNumber: firstSegment.flightNumber,
+              origin: firstSegment.origin,
+              originCity: firstSegment.originCity,
+              destination: lastSegment.destination,
+              destinationCity: lastSegment.destinationCity,
+              departureTime: firstSegment.departureTime,
+              arrivalTime: lastSegment.arrivalTime,
               duration: totalDuration,
               aircraft: flightSegments.map((seg) => seg.aircraft).join(" → "),
               status: "SCHEDULED",
               terminal: {
-                departure: flightSegments[0].terminal.departure,
-                arrival:
-                  flightSegments[flightSegments.length - 1].terminal.arrival,
+                departure: firstSegment.terminal.departure,
+                arrival: lastSegment.terminal.arrival,
               },
-              departureDatetime: segments[0].departure.at,
-              arrivalDatetime: segments[segments.length - 1].arrival.at,
             };
           } else {
             return {
               ...baseFlightData,
               ...flightSegments[0],
-              locationDetails,
               isLayover: false,
-              departureDatetime: segments[0].departure.at,
-              arrivalDatetime: segments[0].arrival.at,
             };
           }
         })
