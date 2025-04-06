@@ -24,82 +24,30 @@ import {
   Search,
   Filter,
   Loader2,
-  ArrowLeft,
-  LayoutDashboard,
 } from "lucide-react";
 import { addDays } from "date-fns";
 
 import FlightCard from "@/components/flight-card";
 import { CurrencySelector } from "@/components/ui/currency-selector";
-import { LocationSuggestions } from "@/components/location-suggestions";
-import { FlightCardSkeleton } from "@/components/flight-card";
-import { FlightFilters, FilterOptions } from "@/components/flight-filters";
 
-// Updated Zod Schema with better validation messages
+// Updated Zod Schema with default currency enforced to "USD"
 const bookingSchema = z
   .object({
-    origin: z
-      .string()
-      .min(
-        1,
-        "Please enter an airport code (e.g., LAX) or city name (e.g., London)"
-      ),
-    originName: z.string().optional(),
-    destination: z
-      .string()
-      .min(
-        1,
-        "Please enter an airport code (e.g., JFK) or city name (e.g., Paris)"
-      ),
-    destinationName: z.string().optional(),
-    departureDate: z.date({
-      required_error: "Departure date is required",
-    }),
+    origin: z.string().length(3, "Airport code must be 3 characters"),
+    destination: z.string().length(3, "Airport code must be 3 characters"),
+    departureDate: z.date(),
     returnDate: z.date().optional(),
-    adults: z
-      .number()
-      .min(1, "At least 1 adult is required")
-      .max(9, "Maximum 9 adults allowed"),
-    children: z
-      .number()
-      .min(0, "Cannot be negative")
-      .max(9, "Maximum 9 children allowed"),
-    infants: z
-      .number()
-      .min(0, "Cannot be negative")
-      .max(9, "Maximum 9 infants allowed"),
+    adults: z.number().min(1, "At least 1 adult is required").max(9),
+    children: z.number().min(0).max(9),
+    infants: z.number().min(0).max(9),
     class: z.enum(["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]),
     currency: z.string().nonempty("Currency is required").default("USD"),
     tripType: z.enum(["oneWay", "roundTrip"]),
   })
   .refine((data) => data.origin !== data.destination, {
-    message: "Origin and destination airports cannot be the same",
+    message: "Origin and Destination cannot be the same",
     path: ["destination"],
-  })
-  .refine(
-    (data) => {
-      if (data.origin.length === 3) {
-        return data.origin.toUpperCase() === data.origin;
-      }
-      return true;
-    },
-    {
-      message: "Airport code must be 3 uppercase letters (e.g., LAX)",
-      path: ["origin"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.destination.length === 3) {
-        return data.destination.toUpperCase() === data.destination;
-      }
-      return true;
-    },
-    {
-      message: "Airport code must be 3 uppercase letters (e.g., JFK)",
-      path: ["destination"],
-    }
-  );
+  });
 
 type BookingForm = z.infer<typeof bookingSchema>;
 
@@ -156,11 +104,6 @@ const BookingPage = () => {
     nonStop: boolean;
   } | null>(null);
   const [currentErrorMessage, setCurrentErrorMessage] = useState<string>("");
-  const [originSearchEnabled, setOriginSearchEnabled] = useState(true);
-  const [destinationSearchEnabled, setDestinationSearchEnabled] =
-    useState(true);
-  const [filteredFlights, setFilteredFlights] = useState<any[]>([]);
-  const [uniqueAirlines, setUniqueAirlines] = useState<string[]>([]);
 
   const {
     register,
@@ -168,7 +111,7 @@ const BookingPage = () => {
     control,
     watch,
     setValue,
-    formState: { errors, touchedFields, isSubmitted },
+    formState: { errors },
   } = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
@@ -178,7 +121,6 @@ const BookingPage = () => {
       currency: "USD",
       tripType: "roundTrip",
     },
-    mode: "onChange",
   });
 
   // Watch dates, trip type, origin, and destination
@@ -283,8 +225,8 @@ const BookingPage = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          origin: data.origin.trim(),
-          destination: data.destination.trim(),
+          origin: data.origin,
+          destination: data.destination,
           departureDate: data.departureDate.toISOString().split("T")[0],
           returnDate: data.returnDate
             ? data.returnDate.toISOString().split("T")[0]
@@ -333,10 +275,9 @@ const BookingPage = () => {
         .toISOString()
         .split("T")[0];
 
-      // Ensure trimmed values for origin and destination
       const searchParams = {
-        origin: data.origin.trim().toUpperCase(),
-        destination: data.destination.trim().toUpperCase(),
+        origin: data.origin.toUpperCase(),
+        destination: data.destination.toUpperCase(),
         departureDate: formattedDepartureDate,
         returnDate: data.returnDate
           ? data.returnDate.toISOString().split("T")[0]
@@ -413,105 +354,30 @@ const BookingPage = () => {
     }
   };
 
+  // Filter flights to display only those whose source and final destination match the entered values.
+  const filteredFlights = flights;
+
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
     const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
     return <FlightCard key={flightKey} searchId={searchId} {...flight} />;
   };
 
-  // Add this useEffect to update filtered flights when main flights array changes
-  useEffect(() => {
-    setFilteredFlights(flights);
-    const airlines = Array.from(
-      new Set(flights.map((flight) => flight.airline))
-    );
-    setUniqueAirlines(airlines);
-  }, [flights]);
-
-  // Add this function to handle filter changes
-  const handleFilterChange = (filters: FilterOptions) => {
-    let filtered = [...flights];
-
-    // Apply airline filters
-    if (filters.airlines.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.airlines.includes(flight.airline)
-      );
-    }
-
-    // Apply non-stop filter
-    if (filters.nonStop) {
-      filtered = filtered.filter((flight) => !flight.isLayover);
-    }
-
-    // Apply cabin class filter
-    if (filters.cabinClass.length > 0) {
-      filtered = filtered.filter((flight) =>
-        filters.cabinClass.includes(flight.cabinClass)
-      );
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (filters.sortBy) {
-        case "price_low":
-          return a.price - b.price;
-        case "price_high":
-          return b.price - a.price;
-        case "duration_short":
-          return a.duration - b.duration;
-        case "departure_early":
-          return (
-            new Date(a.departureTime).getTime() -
-            new Date(b.departureTime).getTime()
-          );
-        case "arrival_early":
-          return (
-            new Date(a.arrivalTime).getTime() -
-            new Date(b.arrivalTime).getTime()
-          );
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredFlights(filtered);
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-[1024px] mx-auto">
-        {/* Page Header with Dashboard Button */}
-        <div className="flex flex-col space-y-4 mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">
-                Flight Booking
-              </h1>
-              <p className="text-muted-foreground">
-                Search and book flights with insurance coverage
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 hover:bg-muted"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </Button>
-          </div>
+        {/* Page Header */}
+        <div className="flex flex-col space-y-2 mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Flight Booking</h1>
+          <p className="text-muted-foreground">
+            Search and book flights with insurance coverage
+          </p>
         </div>
 
         {/* Booking Form */}
         <Card className="mb-8">
           <CardContent className="p-6">
-            {/* IMPORTANT: autoComplete="off" on the form + each input */}
-            <form
-              onSubmit={handleSubmit(onSubmit)}
-              className="space-y-6"
-              autoComplete="off"
-            >
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Trip Type & Flight Mode Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Trip Type */}
@@ -583,29 +449,15 @@ const BookingPage = () => {
                     <PlaneTakeoff className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="origin"
-                      autoComplete="off"
-                      {...register("origin", {
-                        onChange: (e) => {
-                          if (!originSearchEnabled) {
-                            setOriginSearchEnabled(true);
-                          }
-                          setValue("origin", e.target.value.trim());
-                        },
-                      })}
-                      placeholder="Enter origin city or airport"
+                      {...register("origin")}
+                      placeholder="Enter origin city"
                       className="pl-10"
-                    />
-                    <LocationSuggestions
-                      searchTerm={watch("origin")}
-                      onSelect={({ code, name }) => {
-                        setValue("origin", code);
-                        setValue("originName", name);
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
                       }}
-                      isEnabled={originSearchEnabled}
-                      onSearchStateChange={setOriginSearchEnabled}
                     />
                   </div>
-                  {errors.origin && (touchedFields.origin || isSubmitted) && (
+                  {errors.origin && (
                     <p className="text-destructive text-sm">
                       {errors.origin.message}
                     </p>
@@ -618,34 +470,19 @@ const BookingPage = () => {
                     <PlaneLanding className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="destination"
-                      autoComplete="off"
-                      {...register("destination", {
-                        onChange: (e) => {
-                          if (!destinationSearchEnabled) {
-                            setDestinationSearchEnabled(true);
-                          }
-                          setValue("destination", e.target.value.trim());
-                        },
-                      })}
-                      placeholder="Enter destination city or airport"
+                      {...register("destination")}
+                      placeholder="Enter destination city"
                       className="pl-10"
-                    />
-                    <LocationSuggestions
-                      searchTerm={watch("destination")}
-                      onSelect={({ code, name }) => {
-                        setValue("destination", code);
-                        setValue("destinationName", name);
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
                       }}
-                      isEnabled={destinationSearchEnabled}
-                      onSearchStateChange={setDestinationSearchEnabled}
                     />
                   </div>
-                  {errors.destination &&
-                    (touchedFields.destination || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.destination.message}
-                      </p>
-                    )}
+                  {errors.destination && (
+                    <p className="text-destructive text-sm">
+                      {errors.destination.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -665,12 +502,11 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.departureDate &&
-                    (touchedFields.departureDate || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.departureDate.message}
-                      </p>
-                    )}
+                  {errors.departureDate && (
+                    <p className="text-destructive text-sm">
+                      {errors.departureDate.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -705,14 +541,13 @@ const BookingPage = () => {
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
                       {...register("adults", { valueAsNumber: true })}
                       min={1}
                       max={9}
                       className="pl-10"
                     />
                   </div>
-                  {errors.adults && (touchedFields.adults || isSubmitted) && (
+                  {errors.adults && (
                     <p className="text-destructive text-sm">
                       {errors.adults.message}
                     </p>
@@ -725,7 +560,6 @@ const BookingPage = () => {
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
                       {...register("children", { valueAsNumber: true })}
                       min={0}
                       max={9}
@@ -733,12 +567,11 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.children &&
-                    (touchedFields.children || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.children.message}
-                      </p>
-                    )}
+                  {errors.children && (
+                    <p className="text-destructive text-sm">
+                      {errors.children.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -747,7 +580,6 @@ const BookingPage = () => {
                     <Baby className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="number"
-                      autoComplete="off"
                       {...register("infants", { valueAsNumber: true })}
                       min={0}
                       max={9}
@@ -755,7 +587,7 @@ const BookingPage = () => {
                       className="pl-10"
                     />
                   </div>
-                  {errors.infants && (touchedFields.infants || isSubmitted) && (
+                  {errors.infants && (
                     <p className="text-destructive text-sm">
                       {errors.infants.message}
                     </p>
@@ -775,7 +607,7 @@ const BookingPage = () => {
                       <option value="FIRST">First</option>
                     </Select>
                   </div>
-                  {errors.class && (touchedFields.class || isSubmitted) && (
+                  {errors.class && (
                     <p className="text-destructive text-sm">
                       {errors.class.message}
                     </p>
@@ -795,12 +627,11 @@ const BookingPage = () => {
                       />
                     )}
                   />
-                  {errors.currency &&
-                    (touchedFields.currency || isSubmitted) && (
-                      <p className="text-destructive text-sm">
-                        {errors.currency.message}
-                      </p>
-                    )}
+                  {errors.currency && (
+                    <p className="text-destructive text-sm">
+                      {errors.currency.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -829,31 +660,21 @@ const BookingPage = () => {
         </Card>
 
         {/* Flight Results */}
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <FlightCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : flights.length > 0 ? (
+        {flights.length > 0 ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">
                 Available Flights - Showing{" "}
-                {Math.min(displayCount, filteredFlights.length)} of{" "}
-                {filteredFlights.length} flights
+                {Math.min(displayCount, flights.length)} of {flights.length}{" "}
+                flights
               </h2>
-              <FlightFilters
-                airlines={uniqueAirlines}
-                onFilterChange={handleFilterChange}
-              />
             </div>
 
             <div className="space-y-4">
-              {filteredFlights.slice(0, displayCount).map(renderFlightCard)}
+              {flights.slice(0, displayCount).map(renderFlightCard)}
             </div>
 
-            {displayCount < filteredFlights.length && (
+            {displayCount < flights.length && (
               <div className="text-center mt-6">
                 <Button
                   onClick={handleShowMore}
