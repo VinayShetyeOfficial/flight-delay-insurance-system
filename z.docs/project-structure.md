@@ -1,46 +1,4 @@
 flight-delay-insurance
-├── app
-│ ├── api
-│ │ ├── auth
-│ │ │ ├── [...nextauth]
-│ │ │ │ └── route.ts
-│ │ │ ├── signup
-│ │ │ │ └── route.ts
-│ │ │ └── verify
-│ │ │ ├── page.tsx
-│ │ │ └── route.ts
-│ │ ├── flights
-│ │ │ └── search
-│ │ │ └── route.ts
-│ │ ├── bookings
-│ │ │ ├── confirmation
-│ │ │ │ └── route.ts
-│ │ │ └── route.ts
-│ │ ├── create-checkout-session
-│ │ │ └── route.ts
-│ │ ├── user
-│ │ │ └── profile
-│ │ │ └── route.ts
-│ │ ├── flight-status
-│ │ │ └── route.ts
-│ │ └── webhooks
-│ │ └── stripe
-│ │ └── route.ts
-│ ├── signup
-│ │ └── page.tsx
-│ ├── login
-│ │ └── page.tsx
-│ ├── booking
-│ │ ├── confirmation
-│ │ │ └── page.tsx
-│ │ └── page.tsx
-│ ├── profile
-│ │ └── page.tsx
-│ ├── dashboard
-│ │ └── page.tsx
-│ ├── globals.css
-│ ├── layout.tsx
-│ └── page.tsx
 ├── components
 │ ├── ui
 │ │ ├── accordion.tsx
@@ -94,18 +52,14 @@ flight-delay-insurance
 │ │ ├── use-mobile.tsx
 │ │ ├── use-toast.ts
 │ │ ├── icons.tsx
-│ │ ├── date-picker.tsx
-│ │ ├── currency-selector.tsx
-│ │ └── otp-input.tsx
+│ │ └── date-picker.tsx
 │ ├── providers
 │ │ └── SessionProvider.tsx
 │ ├── theme-provider.tsx
 │ ├── ErrorBoundary.tsx
 │ ├── LoadingSpinner.tsx
 │ ├── PricingCard.tsx
-│ ├── flight-card.tsx
-│ ├── location-suggestions.tsx
-│ └── flight-filters.tsx
+│ └── flight-card.tsx
 ├── hooks
 │ ├── use-mobile.tsx
 │ └── use-toast.ts
@@ -118,10 +72,6 @@ flight-delay-insurance
 │ ├── airlineLogos.ts
 │ └── amadeus.ts
 ├── prisma
-│ ├── migrations
-│ │ ├── 20250221212402_add_verification_fields
-│ │ │ └── migration.sql
-│ │ └── migration_lock.toml
 │ └── schema.prisma
 ├── public
 │ ├── assets
@@ -152,25 +102,59 @@ flight-delay-insurance
 │ │ │ ├── Access-Token-generation.txt
 │ │ │ ├── Request-Type-1.txt
 │ │ │ ├── Request-Type-2.txt
-│ │ │ ├── All-API-Services
-│ │ │ ├── Request-Type-3.txt
-│ │ │ └── Request-Type-4.txt
+│ │ │ └── All-API-Services
 │ │ ├── Pricing API.txt
 │ │ ├── Airport Schedule API.txt
-│ │ ├── Flight Tracking API.txt
-│ │ ├── 2. Duffel API.txt
-│ │ └── 1. Amadeus API.txt
+│ │ └── Flight Tracking API.txt
 │ ├── stripe-test-cards.txt
 │ └── project-structure.md
-├── .gitignore
+├── app
+│ ├── api
+│ │ ├── auth
+│ │ │ ├── [...nextauth]
+│ │ │ │ └── route.ts
+│ │ │ └── signup
+│ │ │ └── route.ts
+│ │ ├── flights
+│ │ │ └── search
+│ │ │ └── route.ts
+│ │ ├── bookings
+│ │ │ ├── confirmation
+│ │ │ │ └── route.ts
+│ │ │ └── route.ts
+│ │ ├── create-checkout-session
+│ │ │ └── route.ts
+│ │ ├── user
+│ │ │ └── profile
+│ │ │ └── route.ts
+│ │ ├── flight-status
+│ │ │ └── route.ts
+│ │ └── webhooks
+│ │ └── stripe
+│ │ └── route.ts
+│ ├── signup
+│ │ └── page.tsx
+│ ├── login
+│ │ └── page.tsx
+│ ├── booking
+│ │ ├── confirmation
+│ │ │ └── page.tsx
+│ │ └── page.tsx
+│ ├── profile
+│ │ └── page.tsx
+│ ├── dashboard
+│ │ └── page.tsx
+│ ├── globals.css
+│ ├── layout.tsx
+│ └── page.tsx
 ├── .env
+├── .gitignore
 ├── components.json
 ├── middleware.ts
-├── next.config.js
+├── next.config.mjs
 ├── next-env.d.ts
 ├── package.json
 ├── package-lock.json
 ├── postcss.config.mjs
 ├── tailwind.config.ts
-├── tsconfig.json
-└── tsconfig - Copy.json
+└── tsconfig.json
