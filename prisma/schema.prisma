@@ -9,22 +9,19 @@ datasource db {
 }
 
 model User {
-  id                     String    @id @default(cuid())
-  name                   String?
-  email                  String    @unique
-  emailVerified          Boolean   @default(false)
-  verificationToken      String?
-  verificationTokenExpiry DateTime?
-  image                  String?
-  password               String
-  phoneNumber            String?
-  dateOfBirth            DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  accounts               Account[]
-  sessions               Session[]
-  bookings               Booking[]
-  passwordResets         PasswordReset[]
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  phoneNumber   String?
+  dateOfBirth   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  bookings      Booking[]
 }
 
 model Account {
@@ -76,7 +73,6 @@ model Booking {
   updatedAt     DateTime @updatedAt
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   insurance     Insurance?
-  passengers    Passenger[]
 }
 
 model Insurance {
@@ -100,51 +96,5 @@ model Claim {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   insurance    Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
-}
-
-model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   // Will store hashed token
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([token])
-  @@index([userId])
-}
-
-enum PassengerType {
-  ADULT
-  CHILD
-  INFANT
-}
-
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-}
-
-model Passenger {
-  id              String        @id @default(cuid())
-  bookingId       String
-  passengerType   PassengerType
-  firstName       String
-  lastName        String
-  dateOfBirth     DateTime
-  gender          Gender
-  passportNumber  String?
-  nationality     String?
-  accompaniedBy   String?       // Reference to adult passenger ID
-  mealPreference  String?
-  seatPreference  String?
-  specialRequests String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  @@index([bookingId])
 }
 
