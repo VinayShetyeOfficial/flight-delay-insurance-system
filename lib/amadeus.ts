@@ -96,13 +96,15 @@ class AmadeusService {
 
         return {
           includedCheckedBags: checkedBags
-            ? checkedBags.quantity || (checkedBags.weight ? 1 : 0) // Handle both quantity and weight-based
+            ? checkedBags.quantity || (checkedBags.weight ? 1 : 0)
             : 0,
           includedCabinBags: cabinBags
-            ? cabinBags.quantity || 1 // Default to 1 if cabin bag is allowed but quantity not specified
+            ? cabinBags.quantity || (cabinBags.weight ? 1 : 0)
             : 0,
           checkedBagWeight: checkedBags?.weight || null,
           checkedBagWeightUnit: checkedBags?.weightUnit || null,
+          cabinBagWeight: cabinBags?.weight || null,
+          cabinBagWeightUnit: cabinBags?.weightUnit || null,
         };
       };
 
@@ -116,15 +118,38 @@ class AmadeusService {
             return null;
           }
 
-          // Get baggage info from the first traveler's first segment
-          const firstSegmentBaggage =
-            offer.travelerPricings[0].fareDetailsBySegment[0];
+          // Get cabin class info from all segments
+          const fareDetails = offer.travelerPricings[0].fareDetailsBySegment;
+          const cabinInfo = fareDetails.map((detail: any) => ({
+            cabin: detail.cabin,
+            brandedFare: detail.brandedFareLabel || detail.brandedFare,
+          }));
+
+          // Get the highest class among segments (FIRST > BUSINESS > PREMIUM_ECONOMY > ECONOMY)
+          const cabinClassOrder = [
+            "FIRST",
+            "BUSINESS",
+            "PREMIUM_ECONOMY",
+            "ECONOMY",
+          ];
+          const highestCabinClass = cabinInfo.reduce(
+            (highest: string, current: any) => {
+              const currentIndex = cabinClassOrder.indexOf(current.cabin);
+              const highestIndex = cabinClassOrder.indexOf(highest);
+              return currentIndex < highestIndex ? current.cabin : highest;
+            },
+            "ECONOMY"
+          );
+
+          // Get baggage info from the first segment
+          const firstSegmentBaggage = fareDetails[0];
           const baggageInfo = getBaggageInfo(firstSegmentBaggage);
 
-          // Get cabin class from the first segment
-          const cabinClass =
-            offer.travelerPricings[0].fareDetailsBySegment[0].cabin ||
-            params.travelClass;
+          // Get amenities (non-chargeable ones)
+          const amenities =
+            fareDetails[0].amenities
+              ?.filter((amenity: any) => !amenity.isChargeable)
+              ?.map((amenity: any) => amenity.description) || [];
 
           // Common flight data
           const baseFlightData = {
@@ -132,8 +157,10 @@ class AmadeusService {
             price: parseFloat(offer.price.total),
             currency: offer.price.currency,
             totalPrice: parseFloat(offer.price.grandTotal),
-            cabinClass: cabinClass,
+            cabinClass: highestCabinClass,
+            brandedFare: cabinInfo[0].brandedFare,
             baggage: baggageInfo,
+            amenities: amenities,
           };
 
           // Transform segments
