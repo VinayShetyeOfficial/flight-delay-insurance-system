@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     const otp = generateOTP();
-    const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiryTime = new Date(Date.now() + 60 * 1000); // 1 minute
 
     await prisma.user.update({
       where: { email },
