@@ -27,12 +27,12 @@ export async function POST(req: Request) {
       where: { userId: user.id },
     });
 
-    // Create new reset token with 15 minutes expiry
+    // Create new reset token with 30 seconds expiry
     await prisma.passwordReset.create({
       data: {
         userId: user.id,
         token: hashedToken,
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+        expiresAt: new Date(Date.now() + 30 * 1000), // 30 seconds
         createdAt: new Date(),
       },
     });
