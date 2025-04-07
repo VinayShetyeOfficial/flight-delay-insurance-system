@@ -20,13 +20,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useOTPStore } from "@/lib/store/otpStore";
 
 const signUpSchema = z
   .object({
     firstName: z.string().min(2, "First name must be at least 2 characters"),
     lastName: z.string().min(2, "Last name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number"),
     confirmPassword: z.string(),
     phoneNumber: z.string().min(10, "Invalid phone number"),
     dateOfBirth: z.string().refine((dob) => {
@@ -53,11 +59,13 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { setExpiryTime } = useOTPStore();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
   });
@@ -66,7 +74,8 @@ export default function SignUpPage() {
     setIsLoading(true);
 
     try {
-      console.log("Submitting signup form:", data);
+      // Reset any existing timer first
+      setExpiryTime(null);
 
       const response = await fetch("/api/auth/signup", {
         method: "POST",
@@ -76,19 +85,30 @@ export default function SignUpPage() {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
-      console.log("Signup response:", result);
+      const responseData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || result.details || "Signup failed");
+      if (response.status === 409) {
+        setError("email", {
+          type: "manual",
+          message: "An account with this email already exists",
+        });
+        setIsLoading(false);
+        return;
       }
 
+      if (!response.ok) {
+        throw new Error(responseData.error || "Failed to create account");
+      }
+
+      // Set new expiry time from signup response
+      setExpiryTime(responseData.expiryTime);
+
       toast({
-        title: "Success",
-        description: "Account created successfully. Please log in.",
+        title: "Account created",
+        description: "Please check your email for verification",
       });
 
-      router.push("/login");
+      router.push(`/verify?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       console.error("Signup error:", error);
       toast({
