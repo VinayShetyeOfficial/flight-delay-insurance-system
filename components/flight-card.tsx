@@ -11,7 +11,7 @@ import {
   Power,
   Coffee,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrencySymbol, formatDuration } from "@/lib/utils";
 import {
   Accordion,
@@ -19,6 +19,8 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -72,6 +74,7 @@ interface FlightCardProps {
     checkedBagWeightUnit?: string | null;
   };
   cabinClass?: string;
+  isLoading?: boolean;
 }
 
 // Debug function for direct flights.
@@ -200,8 +203,125 @@ const formatDurationHM = (minutes: number) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+// Add these interfaces at the top
+interface TravelPayoutsLocation {
+  type: string;
+  code: string;
+  name: string;
+  city_name?: string;
+  main_airport_name?: string;
+}
+
+// Add this helper function near the top of the file
+const AirlineLogo = ({
+  airlineCode,
+  airline,
+  size = 48, // default size for the main card
+}: {
+  airlineCode?: string;
+  airline: string;
+  size?: number;
+}) => {
+  const [imgError, setImgError] = useState(false);
+
+  if (!airlineCode || imgError) {
+    return <Plane className={`h-${size / 16} w-${size / 16} text-blue-500`} />;
+  }
+
+  return (
+    <div className="relative w-full h-full">
+      <Image
+        src={`https://assets.wego.com/image/upload/h_240,c_fill,f_auto,fl_lossy,q_auto:best,g_auto/v20250220/flights/airlines_square/${airlineCode}.png`}
+        alt={`${airline} logo`}
+        width={size}
+        height={size}
+        className="object-contain"
+        onError={() => setImgError(true)}
+        priority={true}
+      />
+    </div>
+  );
+};
+
+export function FlightCardSkeleton() {
+  return (
+    <Card className="overflow-hidden">
+      {/* Header with gradient background */}
+      <div
+        className="p-4 flex items-center justify-between"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle 248px at center, #16d9e3 0%, #30c7ec 47%, #46aef7 100%)",
+        }}
+      >
+        {/* Airline logo and name */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-full bg-white/20" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-32 bg-white/20" />
+            <Skeleton className="h-4 w-24 bg-white/20" />
+          </div>
+        </div>
+        {/* Price */}
+        <div className="text-right">
+          <Skeleton className="h-8 w-28 bg-white/20 mb-1" />
+          <Skeleton className="h-4 w-20 bg-white/20 ml-auto" />
+        </div>
+      </div>
+
+      {/* Card Content */}
+      <div className="p-6 space-y-6">
+        {/* Flight Timeline */}
+        <div className="grid grid-cols-[1fr,2fr,1fr] items-center gap-4">
+          {/* Departure */}
+          <div>
+            <Skeleton className="h-8 w-24 mb-2" />
+            <Skeleton className="h-6 w-16 mb-2" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+
+          {/* Flight Path */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-full flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-zinc-300" />
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-zinc-300 to-zinc-200" />
+              <Skeleton className="h-5 w-5 rounded-full" />
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-zinc-200 to-zinc-300" />
+              <div className="h-2 w-2 rounded-full bg-zinc-300" />
+            </div>
+            <Skeleton className="h-4 w-32" />
+          </div>
+
+          {/* Arrival */}
+          <div className="text-right">
+            <Skeleton className="h-8 w-24 ml-auto mb-2" />
+            <Skeleton className="h-6 w-16 ml-auto mb-2" />
+            <Skeleton className="h-4 w-28 ml-auto" />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-col gap-2 pt-4 border-t">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <Skeleton className="h-9 w-28" /> {/* Select Flight button */}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
+
+  // Add these states in the component
+  const [locationDetails, setLocationDetails] = useState<{
+    [key: string]: TravelPayoutsLocation;
+  }>({});
 
   useEffect(() => {
     // Only log debug info if the searchId has changed.
@@ -220,6 +340,62 @@ export default function FlightCard(props: FlightCardProps) {
     }
   }, [props.searchId]);
 
+  useEffect(() => {
+    const fetchLocationDetails = async () => {
+      const fetchDetails = async (iataCode: string) => {
+        try {
+          const response = await fetch(
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+          );
+          const data = await response.json();
+
+          // Try to find airport result first
+          const airportResult = data.find(
+            (item: any) => item.type === "airport"
+          );
+          if (airportResult) return airportResult;
+
+          // If no airport found, try city result
+          const cityResult = data.find((item: any) => item.type === "city");
+          if (cityResult) return cityResult;
+
+          return null;
+        } catch (error) {
+          console.error(`Error fetching details for ${iataCode}:`, error);
+          return null;
+        }
+      };
+
+      const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
+
+      // Handle both layover and direct flights
+      if (props.isLayover && props.segments) {
+        // Existing layover logic
+        for (const segment of props.segments) {
+          if (!newLocationDetails[segment.origin]) {
+            const details = await fetchDetails(segment.origin);
+            if (details) newLocationDetails[segment.origin] = details;
+          }
+          if (!newLocationDetails[segment.destination]) {
+            const details = await fetchDetails(segment.destination);
+            if (details) newLocationDetails[segment.destination] = details;
+          }
+        }
+      } else {
+        // Direct flight logic
+        const originDetails = await fetchDetails(props.origin);
+        if (originDetails) newLocationDetails[props.origin] = originDetails;
+
+        const destDetails = await fetchDetails(props.destination);
+        if (destDetails) newLocationDetails[props.destination] = destDetails;
+      }
+
+      setLocationDetails(newLocationDetails);
+    };
+
+    fetchLocationDetails();
+  }, [props.isLayover, props.segments, props.origin, props.destination]);
+
   // Helper function to generate route string
   const getRouteString = (props: FlightCardProps) => {
     if (props.segments && props.segments.length > 1) {
@@ -231,6 +407,10 @@ export default function FlightCard(props: FlightCardProps) {
     // For direct flights
     return `Route: ${props.origin} → ${props.destination}`;
   };
+
+  if (props.isLoading) {
+    return <FlightCardSkeleton />;
+  }
 
   return (
     <Card className="overflow-hidden">
@@ -245,25 +425,10 @@ export default function FlightCard(props: FlightCardProps) {
         <div className="flex items-center justify-between text-white">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-              {props.airlineCode ? (
-                <div className="relative">
-                  <img
-                    src={`https://content.airhex.com/content/logos/airlines_${props.airlineCode}_200_200_s.png`}
-                    alt={`${props.airline} logo`}
-                    className="h-[100%] w-[100%] object-contain"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.parentElement
-                        ?.querySelector(".fallback-icon")
-                        ?.classList.remove("hidden");
-                    }}
-                  />
-                  <Plane className="h-6 w-6 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
-                </div>
-              ) : (
-                <Plane className="h-6 w-6 text-blue-500" />
-              )}
+              <AirlineLogo
+                airlineCode={props.airlineCode}
+                airline={props.airline}
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -304,7 +469,7 @@ export default function FlightCard(props: FlightCardProps) {
             <p className="font-medium">({props.origin})</p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
               <Building2 className="h-3.5 w-3.5" />
-              Terminal {props.terminal?.departure || "D"}
+              Terminal: {props.terminal?.departure || "D"}
             </div>
           </div>
 
@@ -336,7 +501,7 @@ export default function FlightCard(props: FlightCardProps) {
             <p className="font-medium">({props.destination})</p>
             <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
               <Building2 className="h-3.5 w-3.5" />
-              Terminal {props.terminal?.arrival || "B"}
+              Terminal: {props.terminal?.arrival || "B"}
             </div>
           </div>
         </div>
@@ -422,13 +587,166 @@ export default function FlightCard(props: FlightCardProps) {
 
                 {/* Flight Details Section */}
                 <div className="space-y-4">
-                  {props.segments?.map((segment, index) => (
+                  {props.isLayover ? (
+                    // Existing layover segments mapping
+                    props.segments?.map((segment, index) => (
+                      <div
+                        key={index}
+                        className="border-[1px] border-gray-300 rounded-lg overflow-hidden bg-white shadow-[inset_0_0_2px_#00000015]"
+                        style={{ borderStyle: "dashed" }}
+                      >
+                        {/* Segment Header - With new linear gradient */}
+                        <div
+                          className="px-4 py-3"
+                          style={{
+                            backgroundImage:
+                              "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between text-white">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
+                                <AirlineLogo
+                                  airlineCode={segment.airlineCode}
+                                  airline={segment.airline}
+                                  size={32}
+                                />
+                              </div>
+                              <div>
+                                <span className="font-medium text-white">
+                                  {segment.airline} {segment.flightNumber}
+                                </span>
+                                {props.cabinClass && (
+                                  <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium whitespace-nowrap">
+                                    {getFlightClassLabel(props.cabinClass)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-white/80">
+                              {formatDurationHM(segment.duration)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Segment Content */}
+                        <div className="p-4">
+                          {/* Origin and Destination with Flight Path */}
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <div>
+                              <div className="font-semibold text-base">
+                                {segment.origin} (
+                                {locationDetails[segment.origin]?.type ===
+                                "city"
+                                  ? locationDetails[segment.origin]?.name
+                                  : locationDetails[segment.origin]
+                                      ?.city_name || segment.origin}
+                                )
+                              </div>
+                            </div>
+
+                            {/* Flight Path Visualization - Moved here */}
+                            <div className="flex-1 mx-4">
+                              <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-gray-400" />
+                                <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-400 to-gray-300" />
+                                <div className="rounded-full bg-gray-100 p-1">
+                                  <Plane className="h-3.5 w-3.5 text-zinc-900 rotate-45" />
+                                </div>
+                                <div className="h-[2px] flex-1 bg-gradient-to-r from-gray-300 to-gray-400" />
+                                <div className="h-2 w-2 rounded-full bg-gray-400" />
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="font-semibold text-base">
+                                {segment.destination} (
+                                {locationDetails[segment.destination]?.type ===
+                                "city"
+                                  ? locationDetails[segment.destination]?.name
+                                  : locationDetails[segment.destination]
+                                      ?.city_name || segment.destination}
+                                )
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Airport Names and Terminal Info - Now in a separate row */}
+                          <div className="flex justify-between text-muted-foreground">
+                            <div>
+                              <div className="text-sm">
+                                {locationDetails[segment.origin]?.type ===
+                                "city"
+                                  ? locationDetails[segment.origin]
+                                      ?.main_airport_name
+                                  : locationDetails[segment.origin]?.name || ""}
+                              </div>
+                              <div className="text-xs mt-2">
+                                Terminal: {segment.terminal?.departure || "-"}
+                              </div>
+                              <div className="text-xs">
+                                {segment.departureTime}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div className="text-sm">
+                                {locationDetails[segment.destination]?.type ===
+                                "city"
+                                  ? locationDetails[segment.destination]
+                                      ?.main_airport_name
+                                  : locationDetails[segment.destination]
+                                      ?.name || ""}
+                              </div>
+                              <div className="text-xs mt-2">
+                                Terminal: {segment.terminal?.arrival || "-"}
+                              </div>
+                              <div className="text-xs">
+                                {segment.arrivalTime}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Aircraft and Baggage - Now with conditional rendering */}
+                          <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-2">
+                            <div className="flex items-center gap-2">
+                              <Plane className="h-3 w-3 shrink-0" />
+                              {segment.aircraft}
+                            </div>
+                            {/* Only show baggage info if props.baggage exists */}
+                            {props.baggage && (
+                              <div className="flex items-center gap-2">
+                                <Luggage className="h-3 w-3 shrink-0" />
+                                {`${props.baggage.includedCheckedBags}x Checked Bag`}
+                                {props.baggage.includedCabinBags > 0 &&
+                                  ` • ${props.baggage.includedCabinBags}x Cabin Bag`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Layover Information */}
+                        {index < props.segments.length - 1 && (
+                          <div
+                            className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
+                            style={{ borderTopStyle: "dashed" }}
+                          >
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            Layover:{" "}
+                            {formatDurationHM(
+                              props.layoverTime / (props.segments.length - 1)
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    // New direct flight segment display
                     <div
-                      key={index}
                       className="border-[1px] border-gray-300 rounded-lg overflow-hidden bg-white shadow-[inset_0_0_2px_#00000015]"
                       style={{ borderStyle: "dashed" }}
                     >
-                      {/* Segment Header - With new linear gradient */}
+                      {/* Segment Header - With same linear gradient */}
                       <div
                         className="px-4 py-3"
                         style={{
@@ -439,25 +757,15 @@ export default function FlightCard(props: FlightCardProps) {
                         <div className="flex items-center justify-between text-white">
                           <div className="flex items-center gap-2">
                             <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-[0_0_0_2px_#1500ff9c]">
-                              <div className="relative">
-                                <img
-                                  src={`https://content.airhex.com/content/logos/airlines_${segment.airlineCode}_200_200_s.png`}
-                                  alt={`${segment.airline} logo`}
-                                  className="h-[100%] w-[100%] object-contain"
-                                  onError={(e) => {
-                                    e.currentTarget.onerror = null;
-                                    e.currentTarget.style.display = "none";
-                                    e.currentTarget.parentElement
-                                      ?.querySelector(".fallback-icon")
-                                      ?.classList.remove("hidden");
-                                  }}
-                                />
-                                <Plane className="h-4 w-4 text-blue-500 fallback-icon hidden absolute inset-0 m-auto" />
-                              </div>
+                              <AirlineLogo
+                                airlineCode={props.airlineCode}
+                                airline={props.airline}
+                                size={32}
+                              />
                             </div>
                             <div>
                               <span className="font-medium text-white">
-                                {segment.airline} {segment.flightNumber}
+                                {props.airline} {props.flightNumber}
                               </span>
                               {props.cabinClass && (
                                 <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium whitespace-nowrap">
@@ -467,28 +775,25 @@ export default function FlightCard(props: FlightCardProps) {
                             </div>
                           </div>
                           <span className="text-white/80">
-                            {formatDurationHM(segment.duration)}
+                            {formatDurationHM(props.duration)}
                           </span>
                         </div>
                       </div>
 
                       {/* Segment Content */}
                       <div className="p-4">
-                        {/* Origin and Destination with Flight Path */}
+                        {/* First row: IATA codes with city names and flight path */}
                         <div className="flex items-center justify-between text-muted-foreground">
-                          <div>
-                            <div>
-                              {segment.origin} ({segment.originCity})
-                            </div>
-                            <div className="text-xs">
-                              Terminal {segment.terminal.departure}
-                            </div>
-                            <div className="text-xs">
-                              {segment.departureTime}
-                            </div>
+                          <div className="font-semibold text-base">
+                            {props.origin} (
+                            {locationDetails[props.origin]?.type === "city"
+                              ? locationDetails[props.origin]?.name
+                              : locationDetails[props.origin]?.city_name ||
+                                props.originCity}
+                            )
                           </div>
 
-                          {/* Flight Path Visualization - Dark path with light circle */}
+                          {/* Flight Path Visualization */}
                           <div className="flex-1 mx-4">
                             <div className="flex items-center gap-2">
                               <div className="h-2 w-2 rounded-full bg-gray-400" />
@@ -501,24 +806,53 @@ export default function FlightCard(props: FlightCardProps) {
                             </div>
                           </div>
 
-                          <div className="text-right">
-                            <div>
-                              {segment.destination} ({segment.destinationCity})
-                            </div>
-                            <div className="text-xs">
-                              Terminal {segment.terminal.arrival}
-                            </div>
-                            <div className="text-xs">{segment.arrivalTime}</div>
+                          <div className="font-semibold text-base">
+                            {props.destination} (
+                            {locationDetails[props.destination]?.type === "city"
+                              ? locationDetails[props.destination]?.name
+                              : locationDetails[props.destination]?.city_name ||
+                                props.destinationCity}
+                            )
                           </div>
                         </div>
 
-                        {/* Aircraft and Baggage - Now with conditional rendering */}
-                        <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between">
+                        {/* Second row: Airport names, terminals and times */}
+                        <div className="flex justify-between text-muted-foreground">
+                          <div>
+                            <div className="text-sm">
+                              {locationDetails[props.origin]?.type === "city"
+                                ? locationDetails[props.origin]
+                                    ?.main_airport_name
+                                : locationDetails[props.origin]?.name || ""}
+                            </div>
+                            <div className="text-xs mt-2">
+                              Terminal: {props.terminal?.departure || "-"}
+                            </div>
+                            <div className="text-xs">{props.departureTime}</div>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="text-sm">
+                              {locationDetails[props.destination]?.type ===
+                              "city"
+                                ? locationDetails[props.destination]
+                                    ?.main_airport_name
+                                : locationDetails[props.destination]?.name ||
+                                  ""}
+                            </div>
+                            <div className="text-xs mt-2">
+                              Terminal: {props.terminal?.arrival || "-"}
+                            </div>
+                            <div className="text-xs">{props.arrivalTime}</div>
+                          </div>
+                        </div>
+
+                        {/* Aircraft and Baggage info remains unchanged */}
+                        <div className="text-xs text-muted-foreground flex items-center gap-4 justify-between mt-4">
                           <div className="flex items-center gap-2">
                             <Plane className="h-3 w-3 shrink-0" />
-                            {segment.aircraft}
+                            {props.aircraft}
                           </div>
-                          {/* Only show baggage info if props.baggage exists */}
                           {props.baggage && (
                             <div className="flex items-center gap-2">
                               <Luggage className="h-3 w-3 shrink-0" />
@@ -529,22 +863,8 @@ export default function FlightCard(props: FlightCardProps) {
                           )}
                         </div>
                       </div>
-
-                      {/* Layover Information */}
-                      {index < props.segments.length - 1 && (
-                        <div
-                          className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4"
-                          style={{ borderTopStyle: "dashed" }}
-                        >
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          Layover:{" "}
-                          {formatDurationHM(
-                            props.layoverTime / (props.segments.length - 1)
-                          )}
-                        </div>
-                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
