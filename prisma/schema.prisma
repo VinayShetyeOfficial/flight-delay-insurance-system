@@ -3,45 +3,41 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id                     String    @id @default(cuid())
-  name                   String?
-  email                  String    @unique
-  emailVerified          Boolean   @default(false)
-  verificationToken      String?
-  verificationTokenExpiry DateTime?
-  image                  String?
-  password               String
-  phoneNumber            String?
-  dateOfBirth            DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  accounts               Account[]
-  sessions               Session[]
-  bookings               Booking[]
-  passwordResets         PasswordReset[]
+  id            String    @id @default(cuid())
+  username      String
+  email         String    @unique
+  password      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Add relations for chat functionality
+  channelMembers ChannelMember[]
+  messages       Message[]
+  reactions      Reaction[]
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -62,54 +58,49 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Booking {
-  id           String   @id @default(cuid())
-  userId       String
-  flightNumber String
-  departureTime DateTime
-  arrivalTime   DateTime
-  origin        String
-  destination   String
-  price         Float
-  insuranceType String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  insurance     Insurance?
+// New models for chat functionality
+model Channel {
+  id          String          @id @default(cuid())
+  name        String
+  type        String          // "direct" or "group"
+  isPrivate   Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  members     ChannelMember[]
+  messages    Message[]
 }
 
-model Insurance {
-  id           String   @id @default(cuid())
-  bookingId    String   @unique
-  coverageType String
-  price        Float
-  terms        String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  claim        Claim?
-}
-
-model Claim {
-  id           String   @id @default(cuid())
-  insuranceId  String   @unique
-  status       String
-  reason       String
-  amount       Float
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  insurance    Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
-}
-
-model PasswordReset {
+model ChannelMember {
   id        String   @id @default(cuid())
+  channelId String
   userId    String
-  token     String   // Will store hashed token
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  joinedAt  DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([token])
-  @@index([userId])
+  @@unique([channelId, userId])
 }
 
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  channelId String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+} 
