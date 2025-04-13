@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-import { generateOTP } from "@/lib/utils";
-import { otpEmailTemplate } from "@/lib/emailTemplates";
-import { sendEmail } from "@/lib/email";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
+
+// Create a single PrismaClient instance
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["query", "error", "warn"],
+  });
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(req: Request) {
   if (req.method === "POST") {
@@ -31,17 +39,13 @@ export async function POST(req: Request) {
 
       if (existingUser) {
         return NextResponse.json(
-          { error: "An account with this email already exists" },
-          { status: 409 }
+          { error: "User already exists" },
+          { status: 400 }
         );
       }
 
-      console.log("Generating OTP...");
-      const otp = generateOTP();
-      const expiryTime = new Date(Date.now() + 60 * 1000); // 1 minute
-
       console.log("Hashing password...");
-      const hashedPassword = await bcrypt.hash(password, 12);
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       console.log("Creating new user...");
       const user = await prisma.user.create({
@@ -51,35 +55,15 @@ export async function POST(req: Request) {
           password: hashedPassword,
           phoneNumber: phoneNumber || null,
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-          emailVerified: false,
-          verificationToken: otp,
-          verificationTokenExpiry: expiryTime,
         },
       });
 
       console.log("User created successfully:", user.id);
-      console.log("Sending OTP email...");
-
-      const emailResult = await sendEmail({
-        to: email,
-        subject: "Verify your email",
-        html: otpEmailTemplate(otp),
-      });
-
-      if (!emailResult.success) {
-        console.error("Failed to send OTP email:", emailResult.error);
-        return NextResponse.json(
-          { error: "Failed to send verification email" },
-          { status: 500 }
-        );
-      }
 
       return NextResponse.json(
         {
           message: "User created successfully",
-          expiryTime: expiryTime.getTime(),
           user: { id: user.id, email: user.email },
-          redirect: `/verify?email=${encodeURIComponent(email)}`,
         },
         { status: 201 }
       );
