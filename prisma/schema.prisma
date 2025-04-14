@@ -9,19 +9,22 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  phoneNumber   String?
-  dateOfBirth   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  bookings      Booking[]
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String    @unique
+  emailVerified          Boolean   @default(false)
+  verificationToken      String?
+  verificationTokenExpiry DateTime?
+  image                  String?
+  password               String
+  phoneNumber            String?
+  dateOfBirth            DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  accounts               Account[]
+  sessions               Session[]
+  bookings               Booking[]
+  passwordResets         PasswordReset[]
 }
 
 model Account {
@@ -96,5 +99,17 @@ model Claim {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   insurance    Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   // Will store hashed token
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
 }
 
