@@ -21,8 +21,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useOTPStore } from "@/lib/store/otpStore";
-import { ForgotPassword } from "./forgot-password";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -36,16 +34,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
-  const [showVerificationOptions, setShowVerificationOptions] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-  const { isExpired, setExpiryTime } = useOTPStore();
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
@@ -53,31 +46,22 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     setError(null);
-    setShowVerificationOptions(false);
 
     try {
       const result = await signIn("credentials", {
+        redirect: false,
         email: data.email,
         password: data.password,
-        redirect: false,
       });
 
-      if (result?.error === "UNVERIFIED_EMAIL") {
-        setError("Please verify your email address.");
-        setShowVerificationOptions(true);
-        setIsLoading(false);
-        return;
-      }
-
-      if (result?.error === "CredentialsSignin") {
-        setError("Invalid email or password");
-        setIsLoading(false);
-        return;
-      }
-
       if (result?.error) {
-        setError(result.error);
-        setIsLoading(false);
+        if (result.error.includes("UserNotFound")) {
+          setError("No account found with this email. Please sign up first.");
+        } else if (result.error.includes("InvalidCredentials")) {
+          setError("Invalid email or password. Please check your credentials.");
+        } else {
+          setError("An error occurred during login. Please try again.");
+        }
         return;
       }
 
@@ -90,58 +74,15 @@ export default function LoginPage() {
       router.refresh();
     } catch (error) {
       console.error("Login error:", error);
-      setError("An error occurred during login");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to login. Please try again."
+      );
+    } finally {
       setIsLoading(false);
     }
   };
-
-  const handleResendVerification = async (email: string) => {
-    setIsResending(true);
-    try {
-      const response = await fetch("/api/auth/resend-verification", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to resend verification code");
-      }
-
-      setExpiryTime(data.expiryTime);
-
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
-
-      toast({
-        title: "Verification Code Sent",
-        description: "Please check your email for the verification code",
-      });
-    } catch (error) {
-      console.error("Resend verification error:", error);
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to send verification code",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResending(false);
-    }
-  };
-
-  if (showForgotPassword) {
-    return (
-      <div className="container mx-auto flex h-screen w-screen flex-col items-center justify-center">
-        <ForgotPassword onCancel={() => setShowForgotPassword(false)} />
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto flex h-screen w-screen flex-col items-center justify-center">
@@ -191,41 +132,26 @@ export default function LoginPage() {
                 "Sign In"
               )}
             </Button>
-            {error && !showVerificationOptions && (
-              <div className="text-sm text-red-500">{error}</div>
-            )}
-            {error && showVerificationOptions && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-red-500">
-                  Please verify your email address.
-                </span>
-                {isExpired() && (
-                  <button
-                    type="button"
-                    onClick={() => handleResendVerification(watch("email"))}
-                    disabled={isResending}
-                    className="text-blue-500 hover:underline disabled:opacity-50"
-                  >
-                    {isResending ? "Sending..." : "Resend OTP"}
-                  </button>
-                )}
+            {error && (
+              <div className="mt-4 text-sm text-red-500 text-center">
+                {error}
               </div>
             )}
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <p className="text-sm text-gray-500">
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="text-sm text-gray-500">
             Don&apos;t have an account?{" "}
             <Link href="/signup" className="text-primary hover:underline">
               Sign up
             </Link>
-          </p>
-          <button
-            onClick={() => setShowForgotPassword(true)}
+          </div>
+          <Link
+            href="/forgot-password"
             className="text-sm text-primary hover:underline"
           >
             Forgot your password?
-          </button>
+          </Link>
         </CardFooter>
       </Card>
     </div>
