@@ -1,73 +1,124 @@
-# Welcome to your Lovable project
+# 🛫 Flight Delay Insurance System [🛠️ Under Devlopment]
 
-## Project info
+<!-- [[Live Preview](https://flight-delay-insurance.vercel.app/)] -->
 
-**URL**: https://lovable.dev/projects/c171816e-ef15-45d8-8ebe-29c5af821d47
+A comprehensive flight booking and delay insurance system developed using Next.js, TypeScript, and Tailwind CSS. This project aims to provide users with a seamless experience for booking flights and purchasing insurance against potential delays or cancellations.
 
-## How can I edit this code?
+#### Home Page
 
-There are several ways of editing your application.
+![Home Page](screenshots/1.%20Home.png)
 
-**Use Lovable**
+#### User Authentication
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/c171816e-ef15-45d8-8ebe-29c5af821d47) and start prompting.
+![Signup](screenshots/2.%20Signup.png)
+![OTP Screen](screenshots/3.%20OTP%20Screen.png)
+![OTP Verification](screenshots/4.%20OPT%20Verification.png)
 
-Changes made via Lovable will be committed automatically to this repo.
+#### Flight Booking
 
-**Use your preferred IDE**
+![Flight Search](screenshots/5.%20Source%20%26%20Destination%20Suggestions.png)
+![Flight Results](screenshots/6.%20Flight%20Search%20Results.png)
+![Ticket Details](screenshots/7.%20Ticket%20Details.png)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+#### Passenger Details
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+![Passenger Details](screenshots/8.%20Passenger%20Details.png)
+![Add-Ons](screenshots/9.%20Add-Ons.png)
+![Review Page](screenshots/10.%20Review%20Page.png)
+![Payment Page](screenshots/11.%20Payment%20Page.png)
+![Payment Success](screenshots/12.%20Payment%20Succesfull.png)
 
-Follow these steps:
+#### User Dashboard
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+![Dashboard](screenshots/13.%20Dashboard.png)
+![Flight Status](screenshots/14.%20Flight%20Status%20Check.png)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+#### Confirmed Ticket
 
-# Step 3: Install the necessary dependencies.
-npm i
+![Ticket](screenshots/15.%20Ticket.png)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+<br>
+ 
+## ✨ Features       
+- 🔍 **Flight Search & Booking:** Search for flights with flexible parameters and book with ease.
+- 🌐 **Real-time Flight Data:** Integration with Amadeus API for accurate flight information.
+- 🛡️ **Delay Insurance Options:** Choose from multiple insurance plans to protect your journey.
+- 💳 **Secure Payment Processing:** Integrated with Stripe for safe and reliable transactions.
+- 🔐 **User Authentication:** Complete authentication system with email verification.
+- 📱 **Responsive Design:** Fully responsive interface that works on all devices.
 
-**Edit a file directly in GitHub**
+<br>
+  
+## 🛡️ Insurance Options
+Users can select from three tiers of flight delay insurance:
+- 🔹 **Basic Coverage:** Protection for short delays (up to 2 hours)
+- 🔸 **Standard Coverage:** Coverage for medium delays (up to 4 hours)
+- ⭐ **Premium Coverage:** Complete protection for any delay or cancellation
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+<br>
 
-**Use GitHub Codespaces**
+## 🚀 Technology Stack
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- 🖥️ **Frontend:** Next.js, React, TypeScript, Tailwind CSS, Shadcn UI
+- 🔧 **Backend:** Next.js API Routes, Prisma ORM
+- 🗄️ **Database:** PostgreSQL (Supabase)
+- 🔑 **Authentication:** NextAuth.js
+- 💰 **Payment:** Stripe
+- 📧 **Email:** Resend
+- 🔄 **State Management:** Zustand
+- 🎭 **Animation:** Framer Motion
 
-## What technologies are used for this project?
+<br>
 
-This project is built with:
+## 🤝 Support
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+For suggestions or support, feel free to reach out!
 
-## How can I deploy this project?
+> [!NOTE]
+> This project is still under development. Some features may be incomplete or subject to change.
 
-Simply open [Lovable](https://lovable.dev/projects/c171816e-ef15-45d8-8ebe-29c5af821d47) and click on Share -> Publish.
+<br>
 
-## Can I connect a custom domain to my Lovable project?
+## 🚀 Installation
 
-Yes it is!
+1. Clone the repository:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+   ```bash
+   git clone https://github.com/VinayShetyeOfficial/flight-delay-insurance-system.git
+   ```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+2. Navigate to the project directory:
+   ```bash
+   cd flight-delay-insurance-system
+   ```
+3. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+4. Set up environment variables:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Then fill in the required API keys and database credentials.
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+<br>
+
+## 📝 License
+
+This project is licensed under the [MIT License](./LICENSE) - see the [LICENSE](./LICENSE) file for details.
+
+<br>
+
+## 📧 Contact
+
+Vinay Shetye - [GitHub](https://github.com/VinayShetyeOfficial) - vinay.shetye.personal@outlook.com <br>
+Project Link: [https://github.com/VinayShetyeOfficial/flight-delay-insurance-system](https://github.com/VinayShetyeOfficial/flight-delay-insurance-system)
