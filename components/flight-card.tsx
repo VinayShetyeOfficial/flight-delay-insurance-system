@@ -10,9 +10,15 @@ import {
   Wifi,
   Power,
   Coffee,
+  Calendar,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCurrencySymbol, formatDuration } from "@/lib/utils";
+import {
+  getCurrencySymbol,
+  formatDuration,
+  formatCurrency,
+  formatCustomDate,
+} from "@/lib/utils";
 import {
   Accordion,
   AccordionItem,
@@ -21,6 +27,10 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useFlightStore } from "@/store/flightStore";
+import { useBookingStore } from "@/store/bookingStore";
+import { toast } from "@/components/ui/use-toast";
 
 // This interface is used for each flight segment in a layover flight.
 interface FlightSegment {
@@ -37,6 +47,8 @@ interface FlightSegment {
   };
   aircraft?: string;
   status?: string;
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // The FlightCardProps now optionally include layover flight details and a searchId.
@@ -75,6 +87,14 @@ interface FlightCardProps {
   };
   cabinClass?: string;
   isLoading?: boolean;
+  id: string; // Add this to identify the selected flight
+  passengerCounts?: {
+    adults: number;
+    children: number;
+    infants: number;
+  };
+  departureDatetime: string;
+  arrivalDatetime: string;
 }
 
 // Debug function for direct flights.
@@ -115,7 +135,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 
   const segments = props.segments;
   const totalPrice = props.totalPrice || props.price;
-  const layoverTime = props.layoverTime || 0;
+
+  // Use the same calculateLayoverTime function for layover calculations
+  const layoverTimes: number[] = [];
+  for (let i = 0; i < segments.length - 1; i++) {
+    const currentLayover = calculateLayoverTime(segments[i], segments[i + 1]);
+    layoverTimes.push(currentLayover);
+  }
+  const totalLayoverTime = layoverTimes.reduce((acc, time) => acc + time, 0);
 
   let output = `
 ╔════════════════════════════════════════════════════════════╗
@@ -124,11 +151,14 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Total Journey Summary:
 ║ From: ${segments[0].origin} To: ${segments[segments.length - 1].destination}
 ║ Total Duration: ${formatDuration(
-    segments.reduce((acc, seg) => acc + seg.duration, 0) + layoverTime
+    segments.reduce((acc, seg) => acc + seg.duration, 0) + totalLayoverTime
   )}
 ║ Total Price: ${getCurrencySymbol(props.currency)}${totalPrice.toLocaleString(
     undefined,
-    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
   )}
 ╠════════════════════════════════════════════════════════════╣`;
 
@@ -148,10 +178,11 @@ const debugLayoverFlightInfo = (props: FlightCardProps) => {
 ║ Status: ${segment.status || "SCHEDULED"}`;
 
     if (index < segments.length - 1) {
+      const layover = calculateLayoverTime(segment, segments[index + 1]);
       output += `
 ╠════════════════════════════════════════════════════════════╣
 ║ LAYOVER AT ${segment.destination}:
-║ Duration: ${formatDuration(layoverTime)}
+║ Duration: ${formatDuration(layover)}
 ║ Next Flight Departs: ${segments[index + 1].departureTime}
 ╠════════════════════════════════════════════════════════════╣`;
     }
@@ -178,29 +209,55 @@ const getFlightClassLabel = (cabinClass: string) => {
   }
 };
 
-// Add this helper function at the top of the component
-const formatDurationHM = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+// Update the layover time calculation helper function
+const calculateLayoverTime = (
+  currentSegment: FlightSegment,
+  nextSegment: FlightSegment
+): number => {
+  // Parse times using 12-hour format (e.g., "2:30 PM")
+  const parseTime = (timeStr: string) => {
+    const [time, period] = timeStr.split(" ");
+    let [hours, minutes] = time.split(":").map(Number);
 
-  // If duration is 24 hours or more, show in days
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-
-    if (remainingHours === 0) {
-      return `${days} ${days === 1 ? "day" : "days"}`;
+    // Convert to 24-hour format
+    if (period === "PM" && hours !== 12) {
+      hours += 12;
+    } else if (period === "AM" && hours === 12) {
+      hours = 0;
     }
 
-    return `${days} ${days === 1 ? "day" : "days"} ${remainingHours}h`;
+    return { hours, minutes };
+  };
+
+  const arrival = parseTime(currentSegment.arrivalTime);
+  const departure = parseTime(nextSegment.departureTime);
+
+  // Create Date objects for comparison
+  const arrivalTime = new Date(2000, 0, 1, arrival.hours, arrival.minutes);
+  const departureTime = new Date(
+    2000,
+    0,
+    1,
+    departure.hours,
+    departure.minutes
+  );
+
+  // If departure is earlier than arrival, add 24 hours
+  if (departureTime < arrivalTime) {
+    departureTime.setDate(departureTime.getDate() + 1);
   }
 
-  // For durations less than 24 hours
-  if (remainingMinutes === 0) {
-    return `${hours}h`;
-  }
+  // Calculate difference in minutes
+  const diffMinutes =
+    (departureTime.getTime() - arrivalTime.getTime()) / (1000 * 60);
+  return Math.round(diffMinutes);
+};
 
-  return `${hours}h ${remainingMinutes}m`;
+// Update the duration formatting function
+const formatDurationHM = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
 };
 
 // Add these interfaces at the top
@@ -212,7 +269,7 @@ interface TravelPayoutsLocation {
   main_airport_name?: string;
 }
 
-// Add this helper function near the top of the file
+// Add this helper function at the top of the file
 const AirlineLogo = ({
   airlineCode,
   airline,
@@ -256,16 +313,16 @@ export function FlightCardSkeleton() {
       >
         {/* Airline logo and name */}
         <div className="flex items-center gap-4">
-          <Skeleton className="h-12 w-12 rounded-full bg-white/20" />
+          <Skeleton className="h-12 w-12 rounded-full bg-white/30" />
           <div className="space-y-2">
-            <Skeleton className="h-6 w-32 bg-white/20" />
-            <Skeleton className="h-4 w-24 bg-white/20" />
+            <Skeleton className="h-6 w-32 bg-white/30" />
+            <Skeleton className="h-4 w-24 bg-white/30" />
           </div>
         </div>
         {/* Price */}
         <div className="text-right">
-          <Skeleton className="h-8 w-28 bg-white/20 mb-1" />
-          <Skeleton className="h-4 w-20 bg-white/20 ml-auto" />
+          <Skeleton className="h-8 w-28 bg-white/30 mb-1" />
+          <Skeleton className="h-4 w-20 bg-white/30 ml-auto" />
         </div>
       </div>
 
@@ -317,6 +374,7 @@ export function FlightCardSkeleton() {
 
 export default function FlightCard(props: FlightCardProps) {
   const lastLoggedSearchId = useRef<number | undefined>(undefined);
+  const router = useRouter();
 
   // Add these states in the component
   const [locationDetails, setLocationDetails] = useState<{
@@ -342,23 +400,131 @@ export default function FlightCard(props: FlightCardProps) {
 
   useEffect(() => {
     const fetchLocationDetails = async () => {
+      /**
+       * Fetches location details from Travelpayouts for a given IATA code (e.g. "BOM", "LAS").
+       * Returns a standardized object with city_name, main_airport_name, etc.
+       */
       const fetchDetails = async (iataCode: string) => {
         try {
+          // Always uppercase the code to avoid mismatch
+          const codeUpper = iataCode.toUpperCase();
+
           const response = await fetch(
-            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${encodeURIComponent(
+              codeUpper
+            )}`
           );
           const data = await response.json();
+          if (!Array.isArray(data) || data.length === 0) {
+            return null;
+          }
 
-          // Try to find airport result first
-          const airportResult = data.find(
-            (item: any) => item.type === "airport"
+          // 1) Exact Airport Match (e.g., "JFK")
+          const exactAirportMatch = data.find(
+            (item: any) =>
+              item.type === "airport" && item.code?.toUpperCase() === codeUpper
           );
-          if (airportResult) return airportResult;
 
-          // If no airport found, try city result
-          const cityResult = data.find((item: any) => item.type === "city");
-          if (cityResult) return cityResult;
+          // 2) Exact City Match (e.g., "LAS" => city = "Las Vegas")
+          const exactCityMatch = data.find(
+            (item: any) =>
+              item.type === "city" && item.code?.toUpperCase() === codeUpper
+          );
 
+          // -----------------------------------------
+          // Case 1: EXACT AIRPORT MATCH
+          // e.g. "JFK" => "John F. Kennedy International Airport"
+          // -----------------------------------------
+          if (exactAirportMatch) {
+            return {
+              type: "airport",
+              code: exactAirportMatch.code,
+              name: exactAirportMatch.name, // e.g. "John F. Kennedy International Airport"
+              city_name: exactAirportMatch.city_name, // e.g. "New York"
+              main_airport_name: exactAirportMatch.name,
+              country_code: exactAirportMatch.country_code,
+              country_name: exactAirportMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 2: EXACT CITY MATCH WITH main_airport_name
+          // e.g. "AUH" => city with "Abu Dhabi International Airport"
+          // e.g. "KWI" => city with "Kuwait International Airport"
+          // e.g. "LAS" => city with "McCarran International Airport"
+          // -----------------------------------------
+          if (exactCityMatch && exactCityMatch.main_airport_name) {
+            return {
+              type: "city",
+              code: exactCityMatch.code,
+              name: exactCityMatch.name, // e.g. "Las Vegas"
+              city_name: exactCityMatch.name,
+              main_airport_name: exactCityMatch.main_airport_name, // e.g. "McCarran International Airport"
+              country_code: exactCityMatch.country_code,
+              country_name: exactCityMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 3: EXACT CITY MATCH BUT NO main_airport_name
+          // e.g. "BOM" => city object with main_airport_name = null
+          // => We look for an airport in the same array with city_code === "BOM"
+          // e.g. "Chhatrapati Shivaji International Airport"
+          // -----------------------------------------
+          if (exactCityMatch) {
+            const cityAirport = data.find(
+              (item: any) =>
+                item.type === "airport" &&
+                item.city_code?.toUpperCase() ===
+                  exactCityMatch.code?.toUpperCase()
+            );
+
+            return {
+              type: "city",
+              code: exactCityMatch.code,
+              name: exactCityMatch.name,
+              city_name: exactCityMatch.name,
+              main_airport_name: cityAirport
+                ? cityAirport.name
+                : `${exactCityMatch.name} International Airport`,
+              country_code: exactCityMatch.country_code,
+              country_name: exactCityMatch.country_name,
+            };
+          }
+
+          // -----------------------------------------
+          // Case 4: NO EXACT MATCH => FALL BACK TO THE FIRST RESULT
+          // e.g. user typed "DEL" but the array only has partial matches
+          // -----------------------------------------
+          const firstResult = data[0];
+          if (firstResult) {
+            if (firstResult.type === "airport") {
+              return {
+                type: "airport",
+                code: firstResult.code,
+                name: firstResult.name,
+                city_name: firstResult.city_name,
+                main_airport_name: firstResult.name,
+                country_code: firstResult.country_code,
+                country_name: firstResult.country_name,
+              };
+            } else {
+              // It's a city
+              return {
+                type: "city",
+                code: firstResult.code,
+                name: firstResult.name,
+                city_name: firstResult.name,
+                main_airport_name:
+                  firstResult.main_airport_name ||
+                  `${firstResult.name} International Airport`,
+                country_code: firstResult.country_code,
+                country_name: firstResult.country_name,
+              };
+            }
+          }
+
+          // If no results at all
           return null;
         } catch (error) {
           console.error(`Error fetching details for ${iataCode}:`, error);
@@ -368,25 +534,35 @@ export default function FlightCard(props: FlightCardProps) {
 
       const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
 
-      // Handle both layover and direct flights
       if (props.isLayover && props.segments) {
-        // Existing layover logic
         for (const segment of props.segments) {
           if (!newLocationDetails[segment.origin]) {
-            const details = await fetchDetails(segment.origin);
+            const details = await fetchDetails(
+              segment.origin,
+              segment.originCity
+            );
             if (details) newLocationDetails[segment.origin] = details;
           }
           if (!newLocationDetails[segment.destination]) {
-            const details = await fetchDetails(segment.destination);
+            const details = await fetchDetails(
+              segment.destination,
+              segment.destinationCity
+            );
             if (details) newLocationDetails[segment.destination] = details;
           }
         }
       } else {
         // Direct flight logic
-        const originDetails = await fetchDetails(props.origin);
+        const originDetails = await fetchDetails(
+          props.origin,
+          props.originCity
+        );
         if (originDetails) newLocationDetails[props.origin] = originDetails;
 
-        const destDetails = await fetchDetails(props.destination);
+        const destDetails = await fetchDetails(
+          props.destination,
+          props.destinationCity
+        );
         if (destDetails) newLocationDetails[props.destination] = destDetails;
       }
 
@@ -406,6 +582,370 @@ export default function FlightCard(props: FlightCardProps) {
     }
     // For direct flights
     return `Route: ${props.origin} → ${props.destination}`;
+  };
+
+  const handleSelect = () => {
+    // Get current user from localStorage
+    const currentUser = JSON.parse(
+      localStorage.getItem("current_user") || "{}"
+    );
+    if (!currentUser.id) {
+      console.error("No user ID found");
+      toast({
+        title: "Error",
+        description: "Please log in to select a flight",
+        variant: "destructive",
+      });
+      router.push("/login");
+      return;
+    }
+
+    const validateLocationDetails = (location: any, code: string) => {
+      if (!location) return null;
+      // For cities, we want to include both city and airport information
+      if (location.type === "city" && location.main_airport_name) {
+        return {
+          ...location,
+          airport_name: location.main_airport_name,
+          // Ensure we have proper city name
+          city_name: location.name || location.city_name,
+        };
+      }
+      return location;
+    };
+
+    // First, ensure we have the correct location details from the API
+    const fullLocationDetails = {
+      [props.origin]: validateLocationDetails(
+        locationDetails[props.origin],
+        props.origin
+      ),
+      [props.destination]: validateLocationDetails(
+        locationDetails[props.destination],
+        props.destination
+      ),
+      ...(props.isLayover &&
+        props.segments.reduce(
+          (acc, segment) => ({
+            ...acc,
+            [segment.origin]: validateLocationDetails(
+              locationDetails[segment.origin],
+              segment.origin
+            ),
+            [segment.destination]: validateLocationDetails(
+              locationDetails[segment.destination],
+              segment.destination
+            ),
+          }),
+          {}
+        )),
+    };
+
+    const createLocationDetails = (code: string, cityName: string) => {
+      const location = fullLocationDetails[code];
+
+      // Special handling for city-type locations
+      if (location?.type === "city") {
+        return {
+          type: location.type,
+          code: code,
+          name: location.name || cityName,
+          city_name: location.name || cityName,
+          main_airport_name:
+            location.main_airport_name || `${location.name} Airport`,
+          country_code: location.country_code || "",
+          country_name: location.country_name || "",
+          airport_name:
+            location.main_airport_name || `${location.name} Airport`,
+          city_full_name: location.name || cityName,
+          coordinates: location.coordinates || null,
+          state_code: location.state_code || null,
+          // Add specific city details
+          is_city: true,
+          main_airport_code: location.main_airport_code || code,
+          main_airport_details: {
+            name: location.main_airport_name || `${location.name} Airport`,
+            code: location.main_airport_code || code,
+            terminal: location.main_airport_terminal || "-",
+          },
+        };
+      }
+
+      // Regular airport handling
+      return {
+        type: location?.type || "airport",
+        code: code,
+        name: location?.name || `${code} Airport`,
+        city_name: location?.city_name || cityName,
+        main_airport_name: location?.name || `${code} Airport`,
+        country_code: location?.country_code || "",
+        country_name: location?.country_name || "",
+        airport_name: location?.name || `${code} Airport`,
+        city_full_name: location?.city_name || cityName,
+        coordinates: location?.coordinates || null,
+        state_code: location?.state_code || null,
+        is_city: false,
+      };
+    };
+
+    const completeFlightData = {
+      // Basic Flight Info
+      id: props.id,
+      isLayover: props.isLayover,
+
+      // Price Information
+      price: props.price,
+      totalPrice: props.totalPrice || props.price,
+      currency: props.currency,
+
+      // Class and Duration
+      cabinClass: props.cabinClass,
+      totalDuration: props.duration,
+
+      // Segments Information
+      segments: props.isLayover
+        ? props.segments.map((segment) => ({
+            // Airline Details
+            airline: segment.airline,
+            airlineCode: segment.airlineCode,
+            flightNumber: segment.flightNumber,
+
+            // Route Information
+            origin: segment.origin,
+            originCity: segment.originCity,
+            destination: segment.destination,
+            destinationCity: segment.destinationCity,
+
+            // Timing Information
+            departureDatetime: segment.departureDatetime,
+            arrivalDatetime: segment.arrivalDatetime,
+            departureTime: segment.departureTime,
+            arrivalTime: segment.arrivalTime,
+            duration: segment.duration,
+
+            // Terminal Information
+            terminal: {
+              departure: segment.terminal?.departure || "-",
+              arrival: segment.terminal?.arrival || "-",
+            },
+
+            // Aircraft Information
+            aircraft: segment.aircraft,
+            status: segment.status || "SCHEDULED",
+
+            // Baggage Information
+            baggage: {
+              includedCheckedBags: props.baggage?.includedCheckedBags || 2,
+              includedCabinBags: props.baggage?.includedCabinBags || 1,
+              checkedBagWeight: props.baggage?.checkedBagWeight || 23,
+              checkedBagWeightUnit: props.baggage?.checkedBagWeightUnit || "KG",
+              cabinBagWeight: props.baggage?.cabinBagWeight || 7,
+              cabinBagWeightUnit: props.baggage?.cabinBagWeightUnit || "KG",
+            },
+
+            // Amenities
+            amenities: {
+              wifi: true,
+              power: true,
+              entertainment: true,
+              meals: true,
+              lounge: Boolean(
+                props.cabinClass === "BUSINESS" || props.cabinClass === "FIRST"
+              ),
+              priorityBoarding: Boolean(
+                props.cabinClass === "BUSINESS" || props.cabinClass === "FIRST"
+              ),
+            },
+
+            // Updated Location Details mapping with validation
+            originDetails: createLocationDetails(
+              segment.origin,
+              segment.originCity
+            ),
+            destinationDetails: createLocationDetails(
+              segment.destination,
+              segment.destinationCity
+            ),
+          }))
+        : [
+            {
+              // Single Flight Segment
+              airline: props.airline,
+              airlineCode: props.airlineCode,
+              flightNumber: props.flightNumber,
+              origin: props.origin,
+              originCity: props.originCity,
+              destination: props.destination,
+              destinationCity: props.destinationCity,
+              departureDatetime: props.departureDatetime,
+              arrivalDatetime: props.arrivalDatetime,
+              departureTime: props.departureTime,
+              arrivalTime: props.arrivalTime,
+              duration: props.duration,
+              terminal: props.terminal,
+              aircraft: props.aircraft,
+              status: props.status || "SCHEDULED",
+              baggage: props.baggage,
+              amenities: {
+                wifi: Boolean(props.amenities?.includes("wifi")),
+                power: Boolean(props.amenities?.includes("power")),
+                entertainment: Boolean(
+                  props.amenities?.includes("entertainment")
+                ),
+                meals: Boolean(props.amenities?.includes("meals")),
+              },
+              // Updated Location Details mapping with validation
+              originDetails: createLocationDetails(
+                props.origin,
+                props.originCity
+              ),
+              destinationDetails: createLocationDetails(
+                props.destination,
+                props.destinationCity
+              ),
+            },
+          ],
+
+      // Layover Information (for multi-segment flights)
+      layoverTimes: props.isLayover
+        ? calculateLayoverTimes(props.segments)
+        : [],
+
+      // Store only validated location details
+      fullLocationDetails: Object.entries(fullLocationDetails).reduce(
+        (acc, [key, value]) => ({
+          ...acc,
+          [key]: {
+            ...value,
+            // Ensure main_airport_name is always present for cities
+            main_airport_name:
+              value?.type === "city"
+                ? value.main_airport_name || `${value.name} Airport`
+                : value?.name,
+            // Add city/airport relationship
+            is_city: value?.type === "city",
+            city_full_name:
+              value?.type === "city" ? value.name : value?.city_name,
+          },
+        }),
+        {}
+      ),
+
+      // Passenger Information
+      passengers: props.passengerCounts
+        ? {
+            adults: props.passengerCounts.adults,
+            children: props.passengerCounts.children,
+            infants: props.passengerCounts.infants,
+          }
+        : { adults: 1, children: 0, infants: 0 },
+
+      // Additional Services
+      additionalServices: {
+        meals: Boolean(props.amenities?.includes("meals")),
+        specialAssistance: false,
+        priorityBoarding: false,
+      },
+
+      // Additional Flight Information
+      flightInfo: {
+        aircraft: {
+          type: props.aircraft,
+          configuration: "3-3-3", // Default for most aircraft
+          totalSeats: 300, // Default value
+        },
+
+        mealService: {
+          included: true,
+          mealType: props.cabinClass === "ECONOMY" ? "Standard" : "Premium",
+          dietaryOptions: ["Regular", "Vegetarian", "Halal", "Kosher"],
+        },
+
+        checkInInfo: {
+          onlineCheckIn: true,
+          checkInOpenTime: 48, // hours before departure
+          checkInCloseTime: 1, // hours before departure
+        },
+      },
+
+      // Enhanced Booking Conditions
+      bookingConditions: {
+        refundable: props.cabinClass !== "ECONOMY",
+        changeable: true,
+        changesFee: props.cabinClass === "ECONOMY" ? 50 : 0,
+        cancellationFee: props.cabinClass === "ECONOMY" ? 100 : 0,
+      },
+
+      // Add route summary
+      routeSummary: {
+        origin: {
+          code: props.origin,
+          city: props.originCity,
+          airport: fullLocationDetails[props.origin]?.name,
+        },
+        destination: {
+          code: props.destination,
+          city: props.destinationCity,
+          airport: fullLocationDetails[props.destination]?.name,
+        },
+        via: props.isLayover
+          ? props.segments
+              .map((segment) => ({
+                code: segment.destination,
+                city: segment.destinationCity,
+                airport: fullLocationDetails[segment.destination]?.name,
+              }))
+              .slice(0, -1)
+          : [],
+      },
+    };
+
+    // Validate data before storing
+    console.log("Validating enhanced location details...", {
+      segments: completeFlightData.segments.map((s) => ({
+        origin: s.origin,
+        originDetails: s.originDetails,
+        destination: s.destination,
+        destinationDetails: s.destinationDetails,
+      })),
+    });
+
+    // Store in flightStore
+    useFlightStore.getState().setSelectedFlight(completeFlightData);
+
+    // Store in localStorage with user ID
+    localStorage.setItem(
+      `user_data_${currentUser.id}_selectedFlight`,
+      JSON.stringify(completeFlightData)
+    );
+
+    // Initialize base price in booking store
+    useBookingStore
+      .getState()
+      .setBasePrice(props.price, props.currency || "USD");
+
+    // Navigate to booking page with user ID
+    router.push(
+      `/booking/${props.id}?${new URLSearchParams({
+        adults: completeFlightData.passengers.adults.toString(),
+        children: completeFlightData.passengers.children.toString(),
+        infants: completeFlightData.passengers.infants.toString(),
+        userId: currentUser.id,
+      }).toString()}`
+    );
+  };
+
+  // Helper function to calculate layover times
+  const calculateLayoverTimes = (segments: any[]) => {
+    const layoverTimes = [];
+    for (let i = 0; i < segments.length - 1; i++) {
+      const currentArrival = new Date(segments[i].arrivalDatetime);
+      const nextDeparture = new Date(segments[i + 1].departureDatetime);
+      const layoverMinutes =
+        (nextDeparture.getTime() - currentArrival.getTime()) / (1000 * 60);
+      layoverTimes.push(layoverMinutes);
+    }
+    return layoverTimes;
   };
 
   if (props.isLoading) {
@@ -448,11 +988,7 @@ export default function FlightCard(props: FlightCardProps) {
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold text-white">
-              {getCurrencySymbol(props.currency)}
-              {props.price.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(Number(props.price || 0), props.currency)}
             </p>
             <p className="text-sm text-white/80">Ticket Price</p>
           </div>
@@ -467,9 +1003,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div>
             <p className="text-2xl font-bold">{props.departureTime}</p>
             <p className="font-medium">({props.origin})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.departure || "D"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.departure || "D"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.departureDatetime)}
+              </div>
             </div>
           </div>
 
@@ -499,9 +1041,15 @@ export default function FlightCard(props: FlightCardProps) {
           <div className="text-right">
             <p className="text-2xl font-bold">{props.arrivalTime}</p>
             <p className="font-medium">({props.destination})</p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1 justify-end">
-              <Building2 className="h-3.5 w-3.5" />
-              Terminal: {props.terminal?.arrival || "B"}
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1 items-end">
+              <div className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Terminal: {props.terminal?.arrival || "B"}
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                {formatCustomDate(props.arrivalDatetime)}
+              </div>
             </div>
           </div>
         </div>
@@ -519,7 +1067,7 @@ export default function FlightCard(props: FlightCardProps) {
                 <p>Aircraft: {props.aircraft || "Boeing 737"}</p>
               </div>
             </div>
-            <Button onClick={props.onSelect} className="w-full md:w-auto px-8">
+            <Button onClick={handleSelect} className="w-full md:w-auto">
               Select Flight
             </Button>
           </div>
@@ -541,17 +1089,21 @@ export default function FlightCard(props: FlightCardProps) {
                       <div className="flex items-center gap-2">
                         <Plane className="h-4 w-4 shrink-0" />
                         {props.isLayover
-                          ? `${props.segments?.length - 1} stop(s)`
+                          ? `${props.segments?.length - 1} ${
+                              props.segments?.length - 1 === 1
+                                ? "Stop"
+                                : "Stops"
+                            }`
                           : "Non-stop flight"}
                       </div>
+
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 shrink-0" />
                         Total duration: {formatDurationHM(props.duration)}
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
-                        {props.origin} ({props.originCity}) →{" "}
-                        {props.destination} ({props.destinationCity})
+                        {props.origin} → {props.destination}
                       </div>
                       {/* Only show baggage info if props.baggage exists */}
                       {props.baggage && (
@@ -681,10 +1233,16 @@ export default function FlightCard(props: FlightCardProps) {
                                       ?.main_airport_name
                                   : locationDetails[segment.origin]?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.departure || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.departureDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.departureTime}
                               </div>
                             </div>
@@ -698,10 +1256,16 @@ export default function FlightCard(props: FlightCardProps) {
                                   : locationDetails[segment.destination]
                                       ?.name || ""}
                               </div>
-                              <div className="text-xs mt-2">
+                              <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                                <Building2 className="h-3.5 w-3.5" />
                                 Terminal: {segment.terminal?.arrival || "-"}
                               </div>
-                              <div className="text-xs">
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {formatCustomDate(segment.arrivalDatetime)}
+                              </div>
+                              <div className="text-xs flex items-center gap-1 justify-end">
+                                <Clock className="h-3.5 w-3.5" />
                                 {segment.arrivalTime}
                               </div>
                             </div>
@@ -734,7 +1298,10 @@ export default function FlightCard(props: FlightCardProps) {
                             <Clock className="h-3 w-3 inline mr-1" />
                             Layover:{" "}
                             {formatDurationHM(
-                              props.layoverTime / (props.segments.length - 1)
+                              calculateLayoverTime(
+                                segment,
+                                props.segments[index + 1]
+                              )
                             )}
                           </div>
                         )}
@@ -825,10 +1392,18 @@ export default function FlightCard(props: FlightCardProps) {
                                     ?.main_airport_name
                                 : locationDetails[props.origin]?.name || ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.departure || "-"}
                             </div>
-                            <div className="text-xs">{props.departureTime}</div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.departureDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {props.departureTime}
+                            </div>
                           </div>
 
                           <div className="text-right">
@@ -840,10 +1415,18 @@ export default function FlightCard(props: FlightCardProps) {
                                 : locationDetails[props.destination]?.name ||
                                   ""}
                             </div>
-                            <div className="text-xs mt-2">
+                            <div className="text-xs mt-2 flex items-center gap-1 justify-end">
+                              <Building2 className="h-3 w-3" />
                               Terminal: {props.terminal?.arrival || "-"}
                             </div>
-                            <div className="text-xs">{props.arrivalTime}</div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Calendar className="h-3 w-3" />
+                              {formatCustomDate(props.arrivalDatetime)}
+                            </div>
+                            <div className="text-xs flex items-center gap-1 justify-end">
+                              <Clock className="h-3 w-3" />
+                              {props.arrivalTime}
+                            </div>
                           </div>
                         </div>
 
