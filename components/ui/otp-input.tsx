@@ -139,7 +139,7 @@ export function OTPInput({
 
             {error && !isVerifying && !isSuccess && (
               <div className="flex items-center text-red-500">
-                <OctagonAlert className="w-4 h-4 mr-1.5 flex-shrink-0" />
+                <OctagonAlert className="w-4 h-4 mr-1.5 flex-shrink-0 self-start mt-[2.5px]" />
                 {error}
               </div>
             )}
