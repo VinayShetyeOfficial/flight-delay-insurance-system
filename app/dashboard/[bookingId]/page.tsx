@@ -64,12 +64,6 @@ export default function BookingDetailPage() {
     <div className="container mx-auto px-4 py-8">
       {/* Our custom ticket UI */}
       <BookingTicket booking={bookingData} />
-
-      <div className="mt-8">
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
-          Back to Dashboard
-        </Button>
-      </div>
     </div>
   );
 }
