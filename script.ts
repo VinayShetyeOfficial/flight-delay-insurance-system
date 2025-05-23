@@ -65,3 +65,59 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
+
+// ================ DELETE ALL RECORDS =================
+// import { PrismaClient } from "@prisma/client";
+
+// const prisma = new PrismaClient({
+//   datasources: {
+//     db: {
+//       url: process.env.DATABASE_URL,
+//     },
+//   },
+//   log: ["query", "info", "warn", "error"],
+// });
+
+// async function resetDatabase() {
+//   try {
+//     // Test connection first
+//     await prisma.$connect();
+//     console.log("✅ Database connection successful");
+
+//     // Delete all records from all tables in the correct order to handle foreign key constraints
+//     await prisma.$transaction([
+//       prisma.verificationToken.deleteMany(),
+//       prisma.session.deleteMany(),
+//       prisma.passwordReset.deleteMany(),
+//       prisma.payment.deleteMany(),
+//       prisma.passenger.deleteMany(),
+//       prisma.insurance.deleteMany(),
+//       prisma.claim.deleteMany(),
+//       prisma.booking.deleteMany(),
+//       prisma.flight.deleteMany(),
+//       prisma.account.deleteMany(),
+//       prisma.user.deleteMany(),
+//     ]);
+
+//     console.log("✅ Database reset successful");
+//   } catch (error) {
+//     console.error("❌ Error details:", error);
+
+//     // Check if it's a connection error
+//     if (error.message.includes("Can't reach database server")) {
+//       console.error("\n🔍 Troubleshooting steps:");
+//       console.error("1. Check if your DATABASE_URL in .env is correct");
+//       console.error(
+//         "2. Verify if your IP is whitelisted in Supabase dashboard"
+//       );
+//       console.error("3. Ensure your database is online in Supabase");
+//       console.error(
+//         "4. Check if you can connect using psql or another SQL client"
+//       );
+//     }
+//   } finally {
+//     await prisma.$disconnect();
+//   }
+// }
+
+// resetDatabase();
