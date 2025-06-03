@@ -69,22 +69,6 @@ export default function PassengerForm({
 }: PassengerFormProps) {
   const { updatePassengers, temporaryBooking } = useBookingStore();
 
-  // Add useEffect to restore passenger data from localStorage
-  useEffect(() => {
-    const currentUser = JSON.parse(
-      localStorage.getItem("current_user") || "{}"
-    );
-    if (currentUser.id) {
-      const savedData = JSON.parse(
-        localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-      );
-
-      if (savedData.passengers && savedData.passengers.length > 0) {
-        updatePassengers(savedData.passengers);
-      }
-    }
-  }, [updatePassengers]);
-
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -120,25 +104,6 @@ export default function PassengerForm({
               : "INFANT",
         }));
         updatePassengers(typedPassengers);
-
-        // Save to localStorage
-        const currentUser = JSON.parse(
-          localStorage.getItem("current_user") || "{}"
-        );
-        if (currentUser.id) {
-          const savedData = JSON.parse(
-            localStorage.getItem(`user_data_${currentUser.id}_booking`) || "{}"
-          );
-
-          localStorage.setItem(
-            `user_data_${currentUser.id}_booking`,
-            JSON.stringify({
-              ...savedData,
-              passengers: typedPassengers,
-              lastUpdated: new Date().toISOString(),
-            })
-          );
-        }
       }
     });
 
