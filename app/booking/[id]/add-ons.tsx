@@ -139,6 +139,7 @@ export default function AddOns() {
           {insuranceOptions.map((option) => {
             const convertedPrice = convertPrice(option.basePrice, currency);
             const isSelected = selectedInsurance === option.id;
+            const showFeatures = showFeaturesForCard === option.id;
 
             return (
               <motion.div
@@ -146,15 +147,56 @@ export default function AddOns() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="flex"
+                className="flex relative"
               >
+                {/* Features popup */}
+                <AnimatePresence>
+                  {showFeatures && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute z-10 bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border p-4"
+                    >
+                      <h4 className="font-medium mb-2">Features included:</h4>
+                      <ul className="space-y-2">
+                        {option.features.map((feature, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Check className="h-4 w-4 text-primary" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <Card
                   className={cn(
-                    "flex flex-col flex-1",
+                    "flex flex-col flex-1 relative cursor-pointer",
                     isSelected ? "border-primary" : ""
                   )}
                   onClick={() => handleInsuranceSelection(option.id)}
                 >
+                  {/* Info button */}
+                  <div className="absolute top-3 right-3 z-10">
+                    <Info
+                      className={cn(
+                        "h-5 w-5 cursor-pointer transition-colors",
+                        showFeatures ? "text-primary" : "text-muted-foreground",
+                        "hover:text-primary"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowFeaturesForCard(showFeatures ? null : option.id);
+                      }}
+                    />
+                  </div>
+
                   <CardContent className="p-6 flex flex-col flex-1">
                     <div className="flex flex-col flex-1">
                       <div className="space-y-1">
