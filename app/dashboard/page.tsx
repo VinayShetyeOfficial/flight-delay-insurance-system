@@ -84,6 +84,14 @@ const FlightStatus = ({ flight }: { flight: any }) => {
     <AlertCircle className="h-4 w-4" />
   );
 
+  // Helper function to ensure "Airport" appears in the airport name
+  const formatAirportName = (airportName: string) => {
+    if (!airportName) return "Unknown";
+    return airportName.toLowerCase().includes("airport")
+      ? airportName
+      : `${airportName} Airport`;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -155,7 +163,7 @@ const FlightStatus = ({ flight }: { flight: any }) => {
                     Departure
                   </p>
                   <h4 className="text-base sm:text-lg font-semibold mt-1 break-words">
-                    {flight.departure.airport}
+                    {formatAirportName(flight.departure.airport)}
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
                     <Building2 className="h-4 w-4 flex-shrink-0" />
@@ -205,7 +213,7 @@ const FlightStatus = ({ flight }: { flight: any }) => {
                     Arrival
                   </p>
                   <h4 className="text-base sm:text-lg font-semibold mt-1 break-words">
-                    {flight.arrival.airport}
+                    {formatAirportName(flight.arrival.airport)}
                   </h4>
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-muted-foreground">
                     <Building2 className="h-4 w-4 flex-shrink-0" />
@@ -801,12 +809,16 @@ export default function DashboardPage() {
                                     .join(" ") || "No Insurance"}
                                 </p>
                                 {/* Insurance Coverage Badge */}
-                                {booking?.insurance?.price && (
+                                {booking?.insurance?.price ? (
                                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800/80 rounded-full text-sm font-medium">
                                     <span>
                                       Coverage: {booking.insurance.price}{" "}
                                       {booking.currency}
                                     </span>
+                                  </div>
+                                ) : (
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800/80 rounded-full text-sm font-medium">
+                                    <span>No Coverage</span>
                                   </div>
                                 )}
                               </div>
@@ -883,15 +895,6 @@ export default function DashboardPage() {
 
                       {/* Action Buttons */}
                       <div className="px-6 pb-6 flex justify-end items-center gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center gap-2 text-sm"
-                          onClick={() => window.print()}
-                        >
-                          <Printer className="h-3.5 w-3.5" />
-                          Print
-                        </Button>
                         <Button
                           onClick={() =>
                             router.push(`/dashboard/${booking.id}`)
