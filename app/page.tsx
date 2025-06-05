@@ -12,10 +12,27 @@ import {
 } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import { PricingCard } from "@/components/PricingCard";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   // Track which card is being hovered
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
+
+  // Get session and router for navigation
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  // Handle "Book a Flight" button click
+  const handleBookFlight = () => {
+    if (session) {
+      // User is logged in, redirect to booking
+      router.push("/booking");
+    } else {
+      // User is not logged in, redirect to login
+      router.push("/login");
+    }
+  };
 
   // Your pricing data
   const plans = [
@@ -96,16 +113,21 @@ export default function HomePage() {
                   </ul>
                 </div>
                 <div className="flex flex-col gap-4 justify-center">
-                  <Link href="/booking" className="w-full">
-                    <Button variant="default" size="lg" className="w-full">
-                      Book a Flight
-                    </Button>
-                  </Link>
-                  <Link href="/login" className="w-full">
-                    <Button variant="outline" size="lg" className="w-full">
-                      Login
-                    </Button>
-                  </Link>
+                  <Button
+                    variant="default"
+                    size="lg"
+                    className="w-full"
+                    onClick={handleBookFlight}
+                  >
+                    Book a Flight
+                  </Button>
+                  {!session && (
+                    <Link href="/login" className="w-full">
+                      <Button variant="outline" size="lg" className="w-full">
+                        Login
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -128,7 +150,7 @@ export default function HomePage() {
             <PricingCard
               key={idx}
               index={idx}
-              hoveredCardIndex={hoveredCardIndex}
+              hoveredCardIndex={hoveredCardIndex ?? undefined}
               onHover={(i) => setHoveredCardIndex(i)}
               onHoverLeave={() => setHoveredCardIndex(null)}
               {...plan}
