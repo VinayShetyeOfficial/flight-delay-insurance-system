@@ -6,7 +6,6 @@ import { signIn } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [showVerificationOptions, setShowVerificationOptions] = useState(false);
@@ -207,26 +205,12 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  maxLength={16}
-                  className="pr-10"
-                  {...register("password")}
-                />
-                <button
-                  type="button"
-                  className="absolute right-0 top-0 h-full px-3 flex items-center justify-center bg-white dark:bg-zinc-950 border-l border border-input rounded-r-md"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
+              <Input
+                id="password"
+                type="password"
+                {...register("password")}
+                className={errors.password ? "border-red-500" : ""}
+              />
               {errors.password && (
                 <p className="text-sm text-red-500">
                   {errors.password.message}
