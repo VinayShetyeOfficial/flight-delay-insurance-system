@@ -11,8 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 interface PricingCardProps {
   title: string;
@@ -20,7 +18,7 @@ interface PricingCardProps {
   price: string;
   features: string[];
   popular?: boolean;
-  index: number; // We'll pass this in from the parent if needed
+  index: number; // We’ll pass this in from the parent if needed
   hoveredCardIndex?: number; // We'll manage this in the parent
   onHover?: (index: number) => void; // We'll manage this in the parent
   onHoverLeave?: () => void; // We'll manage this in the parent
@@ -37,23 +35,8 @@ export function PricingCard({
   onHover,
   onHoverLeave,
 }: PricingCardProps) {
-  // Get session and router
-  const { data: session } = useSession();
-  const router = useRouter();
-
   // Is this card being hovered?
   const isHovered = hoveredCardIndex === index;
-
-  // Handle the "Get Started" button click
-  const handleGetStarted = () => {
-    if (session) {
-      // User is logged in, redirect to dashboard
-      router.push("/dashboard");
-    } else {
-      // User is not logged in, redirect to login
-      router.push("/login");
-    }
-  };
 
   // Decide if this card should have the "active" styling
   // 1) It's hovered
@@ -112,7 +95,7 @@ export function PricingCard({
       </CardContent>
 
       <CardFooter className="p-6">
-        <Button className="w-full" variant="default" onClick={handleGetStarted}>
+        <Button className="w-full" variant="default">
           Get Started
         </Button>
       </CardFooter>
