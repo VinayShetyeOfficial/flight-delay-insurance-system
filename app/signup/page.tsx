@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,6 @@ const signUpSchema = z
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
-      .max(16, "")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[a-z]/, "Password must contain at least one lowercase letter")
       .regex(/[0-9]/, "Password must contain at least one number"),
@@ -59,8 +57,6 @@ type SignUpForm = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { setExpiryTime } = useOTPStore();
@@ -207,26 +203,11 @@ export default function SignUpPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="password">Password *</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    maxLength={16}
-                    className="pr-10"
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0 top-0 h-full px-3 flex items-center justify-center bg-white dark:bg-zinc-950 border-l border border-input rounded-r-md"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  {...register("password")}
+                />
                 {errors.password && (
                   <p className="text-sm text-red-500">
                     {errors.password.message}
@@ -235,26 +216,11 @@ export default function SignUpPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    maxLength={16}
-                    className="pr-10"
-                    {...register("confirmPassword")}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0 top-0 h-full px-3 flex items-center justify-center bg-white dark:bg-zinc-950 border-l border border-input rounded-r-md"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  {...register("confirmPassword")}
+                />
                 {errors.confirmPassword && (
                   <p className="text-sm text-red-500">
                     {errors.confirmPassword.message}
