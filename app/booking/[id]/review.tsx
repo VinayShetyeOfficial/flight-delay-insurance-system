@@ -62,35 +62,56 @@ const getAircraftName = (aircraft: any) => {
 export default function Review() {
   const { selectedFlight } = useFlightStore();
   const { temporaryBooking } = useBookingStore();
-  const [localFlight, setLocalFlight] = useState<any>(null);
+  const currency = selectedFlight?.currency || "USD";
+  const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
 
-  // Load flight details from localStorage if not available in store
+  // Add state for location details
+  const [locationDetails, setLocationDetails] = useState<{
+    [key: string]: TravelPayoutsLocation;
+  }>({});
+
+  // Add useEffect for fetching location details
   useEffect(() => {
-    if (!selectedFlight) {
-      const currentUser = JSON.parse(
-        localStorage.getItem("current_user") || "{}"
-      );
-      if (currentUser.id) {
-        const savedFlightData = localStorage.getItem(
-          `user_data_${currentUser.id}_selectedFlight`
-        );
-        if (savedFlightData) {
-          try {
-            const parsedFlight = JSON.parse(savedFlightData);
-            setLocalFlight(parsedFlight);
-          } catch (error) {
-            console.error("Error parsing saved flight data:", error);
+    const fetchLocationDetails = async () => {
+      const fetchDetails = async (iataCode: string) => {
+        try {
+          const response = await fetch(
+            `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${iataCode}`
+          );
+          const data = await response.json();
+          const airportResult = data.find(
+            (item: any) => item.type === "airport"
+          );
+          if (airportResult) return airportResult;
+          const cityResult = data.find((item: any) => item.type === "city");
+          if (cityResult) return cityResult;
+          return null;
+        } catch (error) {
+          console.error(`Error fetching details for ${iataCode}:`, error);
+          return null;
+        }
+      };
+
+      const newLocationDetails: { [key: string]: TravelPayoutsLocation } = {};
+
+      // Fetch details for all segments
+      if (selectedFlight?.segments) {
+        for (const segment of selectedFlight.segments) {
+          if (!newLocationDetails[segment.origin]) {
+            const details = await fetchDetails(segment.origin);
+            if (details) newLocationDetails[segment.origin] = details;
+          }
+          if (!newLocationDetails[segment.destination]) {
+            const details = await fetchDetails(segment.destination);
+            if (details) newLocationDetails[segment.destination] = details;
           }
         }
+        setLocationDetails(newLocationDetails);
       }
-    }
-  }, [selectedFlight]);
+    };
 
-  // Use selectedFlight from store or localStorage
-  const flightData = selectedFlight || localFlight;
-
-  const currency = flightData?.currency || "USD";
-  const rate = CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES] || 1;
+    fetchLocationDetails();
+  }, [selectedFlight?.segments]);
 
   // Update useEffect to store price breakdown in user-specific booking data
   useEffect(() => {
@@ -149,7 +170,7 @@ export default function Review() {
       `user_data_${currentUser.id}_booking`,
       JSON.stringify(updatedBookingData)
     );
-  }, [temporaryBooking, flightData, currency, rate]);
+  }, [temporaryBooking, selectedFlight, currency, rate]);
 
   // Add back the getPassengerIcon function
   const getPassengerIcon = (type: string) => {
@@ -193,36 +214,13 @@ export default function Review() {
     },
   ];
 
-  const getLocationName = (segment: any, originOrDestination: string) => {
-    if (!segment) return "";
-
-    const details =
-      originOrDestination === "origin"
-        ? segment.originDetails
-        : segment.destinationDetails;
-
-    if (!details)
-      return originOrDestination === "origin"
-        ? segment.origin
-        : segment.destination;
-
-    return (
-      details.city_name ||
-      details.name ||
-      (originOrDestination === "origin" ? segment.origin : segment.destination)
-    );
+  const getLocationName = (details: any, code: string) => {
+    if (!details) return code;
+    return details.city_name || details.name || code;
   };
 
-  const getAirportName = (segment: any, originOrDestination: string) => {
-    if (!segment) return "";
-
-    const details =
-      originOrDestination === "origin"
-        ? segment.originDetails
-        : segment.destinationDetails;
-
+  const getAirportName = (details: any) => {
     if (!details) return "";
-
     return (
       details.airport_name || details.main_airport_name || details.name || ""
     );
@@ -230,6 +228,10 @@ export default function Review() {
 
   const renderFlightSegment = (segment: any, index: number) => {
     if (!segment) return null;
+
+    const originDetails = selectedFlight.fullLocationDetails[segment.origin];
+    const destinationDetails =
+      selectedFlight.fullLocationDetails[segment.destination];
 
     return (
       <div
@@ -270,7 +272,7 @@ export default function Review() {
                   {segment.flightNumber}
                 </span>
                 <span className="ml-2 px-2 py-0.5 bg-[#000000a6] rounded-full text-xs uppercase font-medium">
-                  {String(flightData?.cabinClass || "ECONOMY")}
+                  {String(selectedFlight.cabinClass || "ECONOMY")}
                 </span>
               </div>
             </div>
@@ -286,7 +288,8 @@ export default function Review() {
           <div className="flex items-center justify-between text-muted-foreground">
             <div>
               <div className="font-semibold text-base">
-                {segment.origin} ({getLocationName(segment, "origin")})
+                {segment.origin} (
+                {getLocationName(originDetails, segment.origin)})
               </div>
             </div>
 
@@ -304,8 +307,8 @@ export default function Review() {
 
             <div>
               <div className="font-semibold text-base">
-                {segment.destination} ({getLocationName(segment, "destination")}
-                )
+                {segment.destination} (
+                {getLocationName(destinationDetails, segment.destination)})
               </div>
             </div>
           </div>
@@ -313,7 +316,7 @@ export default function Review() {
           {/* Airport Details - Updated with icons */}
           <div className="flex justify-between text-muted-foreground">
             <div>
-              <div className="text-sm">{getAirportName(segment, "origin")}</div>
+              <div className="text-sm">{getAirportName(originDetails)}</div>
               <div className="text-xs mt-2 flex items-center gap-1">
                 <Building2 className="h-3 w-3" />
                 Terminal: {String(segment.terminal?.departure || "-")}
@@ -330,7 +333,7 @@ export default function Review() {
 
             <div className="text-right">
               <div className="text-sm">
-                {getAirportName(segment, "destination")}
+                {getAirportName(destinationDetails)}
               </div>
               <div className="text-xs mt-2 flex items-center gap-1 justify-end">
                 <Building2 className="h-3 w-3" />
@@ -365,20 +368,21 @@ export default function Review() {
         </div>
 
         {/* Layover */}
-        {index < flightData?.segments.length - 1 && flightData.isLayover && (
-          <div
-            className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
-            style={{ borderTopStyle: "dashed" }}
-          >
-            <Clock className="h-3 w-3 inline mr-1" />
-            Layover: {formatDurationHM(flightData.layoverTimes[index])}
-          </div>
-        )}
+        {index < selectedFlight.segments.length - 1 &&
+          selectedFlight.isLayover && (
+            <div
+              className="pt-4 border-t-[1px] border-gray-300 text-xs text-muted-foreground px-4 pb-4 text-center"
+              style={{ borderTopStyle: "dashed" }}
+            >
+              <Clock className="h-3 w-3 inline mr-1" />
+              Layover: {formatDurationHM(selectedFlight.layoverTimes[index])}
+            </div>
+          )}
       </div>
     );
   };
 
-  if (!flightData) {
+  if (!selectedFlight) {
     return <div>No flight selected</div>;
   }
 
@@ -399,10 +403,10 @@ export default function Review() {
           <div className="text-2xl font-bold">
             {formatCurrency(
               temporaryBooking.totalPrice ||
-                flightData.totalPrice ||
-                flightData.price ||
+                selectedFlight.totalPrice ||
+                selectedFlight.price ||
                 0,
-              flightData.currency
+              selectedFlight.currency
             )}
           </div>
         </div>
@@ -417,7 +421,7 @@ export default function Review() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
-            {flightData.segments.map((segment: any, index: number) =>
+            {selectedFlight.segments.map((segment: any, index: number) =>
               renderFlightSegment(segment, index)
             )}
           </div>
@@ -428,7 +432,7 @@ export default function Review() {
               <div className="font-medium">Total Duration</div>
               <div className="text-sm text-muted-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                {formatDurationHM(flightData.totalDuration)}
+                {formatDurationHM(selectedFlight.totalDuration)}
               </div>
             </div>
             <div className="space-y-2">
@@ -488,7 +492,7 @@ export default function Review() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {flightData.segments.map((segment, index) => (
+              {selectedFlight.segments.map((segment, index) => (
                 <div key={index} className="space-y-2">
                   <div className="text-sm font-medium">
                     {segment.origin} → {segment.destination}
