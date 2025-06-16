@@ -156,15 +156,6 @@ export default function Payment() {
       localStorage.removeItem(bookingKey);
       localStorage.removeItem(flightKey);
 
-      // Store just the payment completion status
-      localStorage.setItem(
-        bookingKey,
-        JSON.stringify({
-          isPaymentComplete: true,
-          lastUpdated: new Date().toISOString(),
-        })
-      );
-
       setIsPaymentComplete(true);
       setPaymentComplete(true);
       return booking;
