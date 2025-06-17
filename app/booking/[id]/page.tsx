@@ -173,7 +173,7 @@ export default function BookingPage() {
               onClick={
                 currentStep === 0 ? () => router.back() : goToPreviousStep
               }
-              disabled={temporaryBooking.isPaymentComplete}
+              disabled={false}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               {currentStep === 0 ? "Back to Flights" : "Previous Step"}
