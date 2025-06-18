@@ -119,6 +119,7 @@ export const useFlightStore = create<FlightStore>((set) => ({
         baggage: segment.baggage || flight.baggage,
       })),
     };
+
     if (
       formattedFlight &&
       formattedFlight.segments &&
@@ -133,11 +134,40 @@ export const useFlightStore = create<FlightStore>((set) => ({
         );
         layoverTimes.push(layoverTime);
       }
-      set({ selectedFlight: { ...formattedFlight, layoverTimes } });
+
+      const flightToSave = { ...formattedFlight, layoverTimes };
+      set({ selectedFlight: flightToSave });
+
+      // Store in localStorage if user is logged in
+      if (currentUser.id) {
+        localStorage.setItem(
+          `user_data_${currentUser.id}_selectedFlight`,
+          JSON.stringify(flightToSave)
+        );
+      }
     } else {
       set({ selectedFlight: formattedFlight });
+
+      // Store in localStorage if user is logged in
+      if (currentUser.id) {
+        localStorage.setItem(
+          `user_data_${currentUser.id}_selectedFlight`,
+          JSON.stringify(formattedFlight)
+        );
+      }
     }
   },
-  clearSelectedFlight: () => set({ selectedFlight: null }),
+  clearSelectedFlight: () => {
+    const currentUser = JSON.parse(
+      localStorage.getItem("current_user") || "{}"
+    );
+
+    // Remove from localStorage if user is logged in
+    if (currentUser.id) {
+      localStorage.removeItem(`user_data_${currentUser.id}_selectedFlight`);
+    }
+
+    set({ selectedFlight: null });
+  },
   calculateLayoverTime: calculateLayoverTime,
 }));
