@@ -51,17 +51,6 @@ export function ForgotPassword({ onCancel }: ForgotPasswordProps) {
 
       const responseData = await response.json();
 
-      // Handle database connection error
-      if (responseData.error?.includes("database server")) {
-        toast({
-          title: "Connection Error",
-          description:
-            "We're experiencing technical difficulties. Please try again later.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       if (!response.ok) {
         if (response.status === 404) {
           setError("email", {
@@ -84,7 +73,8 @@ export function ForgotPassword({ onCancel }: ForgotPasswordProps) {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "Unable to process your request. Please try again later.",
+        description:
+          error instanceof Error ? error.message : "Failed to send reset email",
         variant: "destructive",
       });
     } finally {
