@@ -20,7 +20,6 @@ import PassengerForm from "./passenger-form";
 import AddOns from "./add-ons";
 import Review from "./review";
 import Payment from "./payment";
-import { useBookingStore } from "@/store/bookingStore";
 
 // Define the booking steps
 const steps = [
@@ -68,7 +67,6 @@ export const useFlightStore = create<FlightStore>((set) => ({
 export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { temporaryBooking } = useBookingStore();
 
   // Read passenger counts from query parameters
   const adults = parseInt(searchParams.get("adults") || "1", 10);
@@ -122,7 +120,8 @@ export default function BookingPage() {
                     "flex flex-col items-center text-center p-4 rounded-lg transition-colors",
                     currentStep === index
                       ? "bg-[#e7e7e9]" // Active step
-                      : index < currentStep
+                      : // ? "bg-[#e7e7e9]" // Active step
+                      index < currentStep
                       ? "bg-[#e7e7e9]" // Completed steps
                       : "bg-background" // Upcoming steps
                   )}
@@ -173,22 +172,19 @@ export default function BookingPage() {
               onClick={
                 currentStep === 0 ? () => router.back() : goToPreviousStep
               }
-              disabled={temporaryBooking.isPaymentComplete}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               {currentStep === 0 ? "Back to Flights" : "Previous Step"}
             </Button>
-
-            {/* Only show Next Step button if not on the last step (payment) */}
-            {currentStep < steps.length - 1 && (
-              <Button
-                onClick={goToNextStep}
-                disabled={currentStep === 0 && !isCurrentStepValid}
-              >
-                Next Step
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              onClick={goToNextStep}
+              disabled={currentStep === 0 && !isCurrentStepValid}
+            >
+              {currentStep === steps.length - 1
+                ? "Complete Booking"
+                : "Next Step"}
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         </Card>
       </div>
