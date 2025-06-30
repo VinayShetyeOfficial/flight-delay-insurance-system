@@ -37,7 +37,7 @@ interface PassengerFormProps {
   onValidityChange?: (isValid: boolean) => void;
 }
 
-// Update the schema to make passport and nationality required for all passenger types
+// Update the schema to make optional fields explicitly optional
 const passengerSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
@@ -45,10 +45,9 @@ const passengerSchema = z.object({
   gender: z.enum(["MALE", "FEMALE", "OTHER"], {
     required_error: "Please select a gender",
   }),
-  // Make passport and nationality required
-  passportNumber: z.string().min(1, "Passport number is required"),
-  nationality: z.string().min(1, "Nationality is required"),
-  // Keep email and phone optional for infants
+  // Make these fields explicitly optional
+  passportNumber: z.string().optional().or(z.literal("")),
+  nationality: z.string().optional().or(z.literal("")),
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   specialRequests: z.string().optional().or(z.literal("")),
@@ -217,15 +216,6 @@ function PassengerFormSection({
   number: number;
   form: ReturnType<typeof useForm>;
 }) {
-  // Add this utility function for proper text case
-  const toTitleCase = (str: string) => {
-    return str
-      .toLowerCase()
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   const getPassengerLabel = (t: string, n: number) => {
     if (t === "ADULT") return `Adult ${n}`;
     if (t === "CHILD") return `Child (2-12 years) ${n}`;
@@ -236,35 +226,6 @@ function PassengerFormSection({
   // Helper to add required indicator or optional text
   const getLabel = (field: string, required: boolean) =>
     required ? `${field} *` : `${field} (optional)`;
-
-  // Update the effect to handle both phone and email for infants
-  useEffect(() => {
-    if (type === "INFANT") {
-      // Get the first adult's contact details
-      const adultPhoneNumber = form.getValues("passengers.0.phone");
-      const adultEmail = form.getValues("passengers.0.email");
-
-      // Set initial values
-      if (adultPhoneNumber) {
-        form.setValue(`passengers.${index}.phone`, adultPhoneNumber);
-      }
-      if (adultEmail) {
-        form.setValue(`passengers.${index}.email`, adultEmail);
-      }
-
-      // Subscribe to changes in adult's contact details
-      const subscription = form.watch((value, { name }) => {
-        if (name === "passengers.0.phone") {
-          form.setValue(`passengers.${index}.phone`, value.passengers[0].phone);
-        }
-        if (name === "passengers.0.email") {
-          form.setValue(`passengers.${index}.email`, value.passengers[0].email);
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    }
-  }, [form, index, type]);
 
   return (
     <AccordionItem value={`passenger-${index}`}>
@@ -278,7 +239,7 @@ function PassengerFormSection({
           </span>
         </div>
       </AccordionTrigger>
-      <AccordionContent className="space-y-4">
+      <AccordionContent>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <FormField
@@ -288,14 +249,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("First Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter first name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter first name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -308,14 +262,7 @@ function PassengerFormSection({
                 <FormItem>
                   <FormLabel>{getLabel("Last Name", true)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter last name"
-                      {...field}
-                      onChange={(e) => {
-                        const formattedValue = toTitleCase(e.target.value);
-                        field.onChange(formattedValue);
-                      }}
-                    />
+                    <Input placeholder="Enter last name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -368,85 +315,59 @@ function PassengerFormSection({
             />
           </div>
 
-          {/* Passport and Nationality fields - required for all passenger types */}
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name={`passengers.${index}.passportNumber`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{getLabel("Passport Number", true)}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter passport number"
-                      {...field}
-                      required
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          {type === "ADULT" && (
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name={`passengers.${index}.passportNumber`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{getLabel("Passport Number", false)}</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter passport number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name={`passengers.${index}.nationality`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{getLabel("Nationality", false)}</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter nationality" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
 
-            <FormField
-              control={form.control}
-              name={`passengers.${index}.nationality`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{getLabel("Nationality", true)}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter nationality"
-                      {...field}
-                      required
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Contact fields - auto-filled for infants */}
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name={`passengers.${index}.email`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{getLabel("Email", type !== "INFANT")}</FormLabel>
+                  <FormLabel>{getLabel("Email", false)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter email address"
-                      {...field}
-                      readOnly={type === "INFANT"}
-                      className={
-                        type === "INFANT" ? "cursor-not-allowed bg-muted" : ""
-                      }
-                    />
+                    <Input placeholder="Enter email address" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name={`passengers.${index}.phone`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {getLabel("Phone Number", type !== "INFANT")}
-                  </FormLabel>
+                  <FormLabel>{getLabel("Phone Number", false)}</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter phone number"
-                      {...field}
-                      readOnly={type === "INFANT"}
-                      className={
-                        type === "INFANT" ? "cursor-not-allowed bg-muted" : ""
-                      }
-                    />
+                    <Input placeholder="Enter phone number" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
