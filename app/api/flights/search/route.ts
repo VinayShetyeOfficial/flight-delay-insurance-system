@@ -19,8 +19,6 @@ interface FlightData {
   originCity: string;
   destination: string;
   destinationCity: string;
-  departureDatetime: string;
-  arrivalDatetime: string;
   departureTime: string;
   arrivalTime: string;
   price: number;
@@ -139,8 +137,6 @@ const generateMockFlights = (params: FlightSearchParams) => {
       flightNumber: `${Math.floor(Math.random() * 9000) + 1000}`,
       origin: params.origin,
       destination: params.destination,
-      departureDatetime: departureTime.toISOString(),
-      arrivalDatetime: arrivalTime.toISOString(),
       departureTime: departureTime.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
