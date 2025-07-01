@@ -1,14 +1,4 @@
-import {
-  Luggage,
-  Utensils,
-  Wifi,
-  Headphones,
-  Car,
-  Sofa,
-  Shield,
-  ShieldCheck,
-  ShieldPlus,
-} from "lucide-react";
+import { Luggage, Utensils, Wifi, Headphones, Car, Sofa } from "lucide-react";
 
 export const addOns = [
   {
@@ -52,52 +42,6 @@ export const addOns = [
     description: "Relax in our premium airport lounge before your flight",
     basePrice: 35,
     icon: Sofa,
-  },
-];
-
-// Add insurance options
-export const insuranceOptions = [
-  {
-    id: "basic-coverage",
-    name: "Basic Coverage",
-    description: "For short delays",
-    basePrice: 20,
-    icon: Shield,
-    features: [
-      "Covers up to 2 hours of delay",
-      "24/7 customer support",
-      "Instant claim processing",
-      "Mobile app access",
-    ],
-  },
-  {
-    id: "standard-coverage",
-    name: "Standard Coverage",
-    description: "For medium delays",
-    basePrice: 40,
-    icon: ShieldCheck,
-    features: [
-      "Covers up to 4 hours of delay",
-      "Priority customer support",
-      "Instant claim processing",
-      "Mobile app access",
-      "Real-time flight tracking",
-    ],
-  },
-  {
-    id: "premium-coverage",
-    name: "Premium Coverage",
-    description: "Complete protection",
-    basePrice: 60,
-    icon: ShieldPlus,
-    features: [
-      "Covers any delay and cancellation",
-      "VIP customer support",
-      "Instant claim processing",
-      "Mobile app access",
-      "Real-time flight tracking",
-      "Hotel booking assistance",
-    ],
   },
 ];
 
