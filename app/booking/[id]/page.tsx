@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,11 +15,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { create } from "zustand";
+import { WalletAddressDialog } from "@/components/ui/WalletAddressDialog";
+import { UserStorageService } from "@/lib/services/userStorage";
+import { useSession } from "next-auth/react";
 
 import PassengerForm from "./passenger-form";
 import AddOns from "./add-ons";
 import Review from "./review";
 import Payment from "./payment";
+import { useBookingStore } from "@/store/bookingStore";
 
 // Define the booking steps
 const steps = [
@@ -67,6 +71,8 @@ export const useFlightStore = create<FlightStore>((set) => ({
 export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { temporaryBooking } = useBookingStore();
+  const { data: session } = useSession();
 
   // Read passenger counts from query parameters
   const adults = parseInt(searchParams.get("adults") || "1", 10);
@@ -76,8 +82,87 @@ export default function BookingPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isCurrentStepValid, setIsCurrentStepValid] = useState(true);
   const progress = (currentStep / (steps.length - 1)) * 100;
+  const [walletDialogOpen, setWalletDialogOpen] = useState(false);
+  const [pendingNextStep, setPendingNextStep] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
-  const goToNextStep = () => {
+  // Fetch wallet address from local storage or user profile on mount
+  useEffect(() => {
+    const user = UserStorageService.getCurrentUser();
+    if (user && user.walletAddress) {
+      setWalletAddress(user.walletAddress);
+    }
+    // Also fetch from backend if logged in
+    async function fetchWalletFromBackend() {
+      if (session) {
+        const res = await fetch("/api/user/profile");
+        if (res.ok) {
+          const userData = await res.json();
+          if (userData.walletAddress) {
+            setWalletAddress(userData.walletAddress);
+            UserStorageService.setCurrentUser({
+              ...user,
+              walletAddress: userData.walletAddress,
+            });
+          }
+        }
+      }
+    }
+    fetchWalletFromBackend();
+  }, [session]);
+
+  // Helper: check if insurance is selected in add-ons step
+  const isInsuranceSelected = () => {
+    return (
+      steps[currentStep].id === "add-ons" &&
+      temporaryBooking.selectedInsurance &&
+      temporaryBooking.selectedInsurance !== null
+    );
+  };
+
+  // Intercept Next Step navigation for Add-ons step
+  const goToNextStep = async () => {
+    if (
+      steps[currentStep].id === "add-ons" &&
+      temporaryBooking.selectedInsurance
+    ) {
+      let localWallet = walletAddress;
+      // Always check backend if localWallet is not set
+      if (!localWallet && session) {
+        try {
+          const res = await fetch("/api/user/profile");
+          if (res.ok) {
+            const userData = await res.json();
+            if (
+              userData.walletAddress &&
+              userData.walletAddress !== "null" &&
+              userData.walletAddress !== ""
+            ) {
+              setWalletAddress(userData.walletAddress);
+              localWallet = userData.walletAddress;
+              // Also update localStorage
+              const user = UserStorageService.getCurrentUser();
+              if (user) {
+                UserStorageService.setCurrentUser({
+                  ...user,
+                  walletAddress: userData.walletAddress,
+                });
+              }
+            } else {
+              setWalletAddress("");
+            }
+          }
+        } catch {
+          setWalletAddress("");
+        }
+      }
+      // Wait for state to update before opening dialog
+      setTimeout(() => {
+        setWalletDialogOpen(true);
+        setPendingNextStep(true);
+      }, 100);
+      return;
+    }
     if (currentStep === 0 && !isCurrentStepValid) return;
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -92,10 +177,48 @@ export default function BookingPage() {
     }
   };
 
+  // Handle wallet address confirmation
+  const handleWalletConfirm = async (address: string) => {
+    setWalletAddress(address);
+    setWalletDialogOpen(false);
+    // Save to local storage
+    const user = UserStorageService.getCurrentUser();
+    if (user) {
+      UserStorageService.setCurrentUser({ ...user, walletAddress: address });
+    }
+    // Save to backend
+    try {
+      await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: address }),
+      });
+    } catch (e) {
+      // Optionally show error toast
+    }
+    // Only proceed to next step if dialog is closed and user confirmed
+    if (pendingNextStep) {
+      setPendingNextStep(false);
+      setTimeout(() => {
+        // Actually go to next step only once
+        setWalletDialogOpen(false);
+        setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+        setIsCurrentStepValid(true);
+      }, 0);
+    }
+  };
+
   const CurrentStepComponent = steps[currentStep].component;
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Wallet Address Dialog */}
+      <WalletAddressDialog
+        open={walletDialogOpen}
+        onClose={() => setWalletDialogOpen(false)}
+        onConfirm={handleWalletConfirm}
+        initialAddress={walletAddress || ""}
+      />
       <div className="max-w-[1024px] mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -120,8 +243,7 @@ export default function BookingPage() {
                     "flex flex-col items-center text-center p-4 rounded-lg transition-colors",
                     currentStep === index
                       ? "bg-[#e7e7e9]" // Active step
-                      : // ? "bg-[#e7e7e9]" // Active step
-                      index < currentStep
+                      : index < currentStep
                       ? "bg-[#e7e7e9]" // Completed steps
                       : "bg-background" // Upcoming steps
                   )}
@@ -172,19 +294,23 @@ export default function BookingPage() {
               onClick={
                 currentStep === 0 ? () => router.back() : goToPreviousStep
               }
+              // Only disable Previous Step button on payment step if payment is complete
+              disabled={currentStep === 3 && temporaryBooking.isPaymentComplete}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               {currentStep === 0 ? "Back to Flights" : "Previous Step"}
             </Button>
-            <Button
-              onClick={goToNextStep}
-              disabled={currentStep === 0 && !isCurrentStepValid}
-            >
-              {currentStep === steps.length - 1
-                ? "Complete Booking"
-                : "Next Step"}
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
+
+            {/* Only show Next Step button if not on the last step (payment) */}
+            {currentStep < steps.length - 1 && (
+              <Button
+                onClick={goToNextStep}
+                disabled={currentStep === 0 && !isCurrentStepValid}
+              >
+                Next Step
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
         </Card>
       </div>
