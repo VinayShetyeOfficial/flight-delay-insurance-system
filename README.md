@@ -1,5 +1,4 @@
-# 🛫 Flight Delay Insurance System [🛠️ Under Devlopment]
-
+# 🛫 Flight Delay Insurance System 
 <!-- [[Live Preview](https://flight-delay-insurance.vercel.app/)] -->
 
 A comprehensive flight booking and delay insurance system developed using Next.js, TypeScript, and Tailwind CSS. This project aims to provide users with a seamless experience for booking flights and purchasing insurance against potential delays or cancellations.
