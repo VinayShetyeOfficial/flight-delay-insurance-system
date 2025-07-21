@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { useOTPStore } from "@/lib/store/otpStore";
 import { ForgotPassword } from "./forgot-password";
+import { UserStorageService } from "@/lib/services/userStorage";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -62,6 +63,18 @@ export default function LoginPage() {
         redirect: false,
       });
 
+      if (result?.error?.includes("database server")) {
+        setError("Unable to connect to the server. Please try again later.");
+        setIsLoading(false);
+        toast({
+          title: "Connection Error",
+          description:
+            "We're experiencing technical difficulties. Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (result?.error === "UNVERIFIED_EMAIL") {
         setError("Please verify your email address.");
         setShowVerificationOptions(true);
@@ -81,6 +94,22 @@ export default function LoginPage() {
         return;
       }
 
+      // Get user info from session
+      const response = await fetch("/api/user/profile");
+      const userData = await response.json();
+
+      // Debug log
+      console.log("User Profile Data:", userData);
+
+      // Store user info in localStorage with ID
+      UserStorageService.setCurrentUser({
+        id: userData.id, // e.g., "cm7qjv3r90000u3r0b4qzaqn7"
+        email: userData.email, // Keep email for display purposes only
+      });
+
+      // Debug log
+      console.log("Stored User Data:", UserStorageService.getCurrentUser());
+
       toast({
         title: "Success",
         description: "Logged in successfully!",
@@ -90,7 +119,14 @@ export default function LoginPage() {
       router.refresh();
     } catch (error) {
       console.error("Login error:", error);
-      setError("An error occurred during login");
+      setError(
+        "Unable to connect to the service. Please check your internet connection."
+      );
+      toast({
+        title: "Connection Error",
+        description: "Please check your internet connection and try again.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
