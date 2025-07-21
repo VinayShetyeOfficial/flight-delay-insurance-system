@@ -138,9 +138,7 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ""
 );
 
-//
 // Insurance Options
-//
 const insuranceOptions = [
   {
     id: "basic",
@@ -377,8 +375,44 @@ export default function BookingPage() {
       }
 
       setFlights(flights);
-      // Reset pagination to initial count of 5 when new search is performed.
       setDisplayCount(5);
+
+      // Store search booking fields in localStorage
+      const searchParams = {
+        origin: data.origin.trim().toUpperCase(),
+        destination: data.destination.trim().toUpperCase(),
+        departureDate: data.departureDate.toISOString().split("T")[0],
+        returnDate: data.returnDate
+          ? data.returnDate.toISOString().split("T")[0]
+          : undefined,
+        adults: data.adults,
+        children: data.children,
+        infants: data.infants,
+        class: data.class,
+        currency: data.currency,
+        nonStop: nonStop,
+      };
+      localStorage.setItem("bookingSearch", JSON.stringify(searchParams));
+
+      // Store complete booking form data
+      const bookingFormData = {
+        origin: data.origin.trim().toUpperCase(),
+        originName: data.originName,
+        destination: data.destination.trim().toUpperCase(),
+        destinationName: data.destinationName,
+        departureDate: data.departureDate.toISOString().split("T")[0],
+        returnDate: data.returnDate
+          ? data.returnDate.toISOString().split("T")[0]
+          : undefined,
+        adults: data.adults,
+        children: data.children || 0,
+        infants: data.infants || 0,
+        class: data.class,
+        currency: data.currency,
+        tripType: data.tripType,
+        nonStop: nonStop,
+      };
+      localStorage.setItem("bookingFormData", JSON.stringify(bookingFormData));
     } catch (error) {
       console.error("Flight Search Error:", error);
       toast({
@@ -482,13 +516,17 @@ export default function BookingPage() {
 
   // Function to render a FlightCard
   const renderFlightCard = (flight: any) => {
-    const flightKey = `${flight.id}-${flight.flightNumber}-${searchId}`;
+    const flightKey = `${flight.id}-${searchId}`;
     return (
       <FlightCard
         key={flightKey}
-        searchId={searchId}
         {...flight}
-        passengerCounts={passengerCounts}
+        passengerCounts={{
+          adults: watch("adults"),
+          children: watch("children"),
+          infants: watch("infants"),
+        }}
+        searchId={searchId}
       />
     );
   };
@@ -973,7 +1011,7 @@ export default function BookingPage() {
         {/* Flight Results */}
         {isLoading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <FlightCardSkeleton key={i} />
             ))}
           </div>
@@ -1025,34 +1063,6 @@ export default function BookingPage() {
             </div>
           )
         )}
-
-        {/* Insurance Options */}
-        <Card className="mt-8">
-          <div className="p-6 space-y-4">
-            <h4 className="font-medium">Insurance Options</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {insuranceOptions.map((option) => (
-                <div
-                  key={option.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedInsurance === option.id
-                      ? "border-primary bg-primary/5"
-                      : "hover:border-primary/50"
-                  }`}
-                  onClick={() => setSelectedInsurance(option.id)}
-                >
-                  <div className="space-y-2">
-                    <h5 className="font-medium">{option.name}</h5>
-                    <p className="text-sm text-muted-foreground">
-                      {option.description}
-                    </p>
-                    <p className="text-lg font-bold">${option.price}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
       </div>
     </div>
   );
