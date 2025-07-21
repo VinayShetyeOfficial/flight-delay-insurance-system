@@ -177,6 +177,8 @@ class AmadeusService {
               destinationCity:
                 response.data.dictionaries.locations[segment.arrival.iataCode]
                   ?.cityCode || segment.arrival.iataCode,
+              departureDatetime: segment.departure.at,
+              arrivalDatetime: segment.arrival.at,
               departureTime: new Date(
                 segment.departure.at
               ).toLocaleTimeString(),
@@ -196,40 +198,62 @@ class AmadeusService {
           const locationDetails = response.data.dictionaries.locations || {};
 
           if (isLayover) {
-            const firstSegment = flightSegments[0];
-            const lastSegment = flightSegments[flightSegments.length - 1];
             const totalDuration = this.parseDuration(
               offer.itineraries[0].duration
             );
+
+            // Calculate actual flight time from segments
             const segmentsDuration = flightSegments.reduce(
               (acc, seg) => acc + seg.duration,
               0
             );
-            const layoverTime = totalDuration - segmentsDuration;
+
+            // Calculate layover time by comparing segment times
+            let totalLayoverTime = 0;
+            for (let i = 0; i < flightSegments.length - 1; i++) {
+              const currentSegment = flightSegments[i];
+              const nextSegment = flightSegments[i + 1];
+
+              // Use full datetime strings for accurate calculations
+              const currentArrival = new Date(currentSegment.arrivalDatetime);
+              const nextDeparture = new Date(nextSegment.departureDatetime);
+
+              // Calculate difference in minutes
+              const layoverMinutes =
+                (nextDeparture.getTime() - currentArrival.getTime()) /
+                (1000 * 60);
+              totalLayoverTime += layoverMinutes;
+            }
 
             return {
               ...baseFlightData,
               isLayover: true,
               segments: flightSegments,
-              layoverTime,
+              layoverTime: totalLayoverTime,
               locationDetails,
               // Display data for the card
-              airline: firstSegment.airline,
-              airlineCode: firstSegment.airlineCode,
-              flightNumber: firstSegment.flightNumber,
-              origin: firstSegment.origin,
-              originCity: firstSegment.originCity,
-              destination: lastSegment.destination,
-              destinationCity: lastSegment.destinationCity,
-              departureTime: firstSegment.departureTime,
-              arrivalTime: lastSegment.arrivalTime,
+              airline: flightSegments[0].airline,
+              airlineCode: flightSegments[0].airlineCode,
+              flightNumber: flightSegments[0].flightNumber,
+              origin: flightSegments[0].origin,
+              originCity: flightSegments[0].originCity,
+              destination:
+                flightSegments[flightSegments.length - 1].destination,
+              destinationCity:
+                flightSegments[flightSegments.length - 1].destinationCity,
+              departureTime: flightSegments[0].departureTime,
+              arrivalTime:
+                flightSegments[flightSegments.length - 1].arrivalTime,
               duration: totalDuration,
               aircraft: flightSegments.map((seg) => seg.aircraft).join(" → "),
               status: "SCHEDULED",
               terminal: {
-                departure: firstSegment.terminal.departure,
-                arrival: lastSegment.terminal.arrival,
+                departure: flightSegments[0].terminal.departure,
+                arrival:
+                  flightSegments[flightSegments.length - 1].terminal.arrival,
               },
+              departureDatetime: segments[0].departure.at,
+              arrivalDatetime: segments[segments.length - 1].arrival.at,
             };
           } else {
             return {
@@ -237,6 +261,8 @@ class AmadeusService {
               ...flightSegments[0],
               locationDetails,
               isLayover: false,
+              departureDatetime: segments[0].departure.at,
+              arrivalDatetime: segments[0].arrival.at,
             };
           }
         })
